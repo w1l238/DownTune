@@ -18,6 +18,6 @@
     "music-metadata": "^11.10.3",
     "node-id3": "^0.2.6",
     "p-limit": "^7.2.0",
-    "ytdlp-nodejs": "^2.0.0"
+    "ytdlp-nodejs": "^3.4.2"
   }
 }

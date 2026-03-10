@@ -166,7 +166,8 @@
 
     /* Move up and detach when typing */
     .search-container:focus-within {
-        bottom: 55%; 
+        bottom: 0;
+        margin-bottom: 1.75rem;
         border-radius: 2rem; 
         border: 1px solid rgba(255, 255, 255, 0.2); 
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);

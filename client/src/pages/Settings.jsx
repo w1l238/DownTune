@@ -3,6 +3,7 @@ import { FiSave, FiMonitor, FiDatabase, FiSettings, FiLayout, FiHardDrive } from
 import './css/Settings.css';
 import Popup from '../components/Popup';
 import CustomDropdown from '../components/CustomDropdown';
+import { API_BASE_URL } from '../config';
 
 const Settings = () => {
     useEffect(() => {
@@ -49,7 +50,7 @@ const Settings = () => {
         }
 
         // Fetch config from backend
-        fetch('http://localhost:3001/config')
+        fetch(`${API_BASE_URL}/config`)
             .then(res => res.json())
             .then(data => {
                 if (data.clientId) setClientId(data.clientId);
@@ -84,7 +85,7 @@ const Settings = () => {
 
         // Save Config
         try {
-            const response = await fetch('http://localhost:3001/config', {
+            const response = await fetch(`${API_BASE_URL}/config`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ clientId, clientSecret, downloadPath })

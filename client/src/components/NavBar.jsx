@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FiSearch, FiSettings, FiMusic } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import './css/NavBar.css';
+import { API_BASE_URL } from '../config';
 
 const NavBar = () => {
     const location = useLocation();
@@ -21,7 +22,7 @@ const NavBar = () => {
         const limit = localStorage.getItem('spotify_results_limit') || 20;
 
         try {
-            const response = await fetch(`http://localhost:3001/search-spotify?q=${encodeURIComponent(query)}&limit=${limit}`);
+            const response = await fetch(`${API_BASE_URL}/search-spotify?q=${encodeURIComponent(query)}&limit=${limit}`);
             if (response.ok) {
                 const data = await response.json();
                 navigate('/results', { state: { results: data.tracks, query } });

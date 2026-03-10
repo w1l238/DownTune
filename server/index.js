@@ -20,10 +20,35 @@ const getBaseDownloadPath = () => {
   return process.env.DOWNLOAD_PATH || path.join(__dirname, '..', 'downloads');
 };
 
-import { YtDlp } from 'ytdlp-nodejs';
+import { spawn } from 'child_process';
 import NodeID3 from 'node-id3';
-const ytdlp = new YtDlp();
 import { getLibrary, refreshLibrary, deleteSong, getSongArt, updateSongMetadata, toggleFavorite, bulkLike, bulkDelete } from './libraryManager.js';
+
+// Helper to run yt-dlp directly
+const runYtDlp = (args) => {
+  return new Promise((resolve, reject) => {
+    const fullArgs = ['-m', 'yt_dlp', ...args];
+    info(`[DEBUG] Executing: python3 ${fullArgs.join(' ')}`);
+
+    const childProcess = spawn('python3', fullArgs, {
+      env: { ...process.env, HOME: '/tmp' }
+    });
+    let stdout = '';
+    let stderr = '';
+
+    childProcess.stdout.on('data', (data) => stdout += data.toString());
+    childProcess.stderr.on('data', (data) => stderr += data.toString());
+
+    childProcess.on('close', (code) => {
+      if (code === 0) {
+        resolve(stdout);
+      } else {
+        reject(new Error(`yt-dlp process exited with code ${code}: ${stderr}`));
+      }
+    });
+    childProcess.on('error', (err) => reject(err));
+  });
+};
 
 const app = express();
 const port = 3001;
@@ -198,7 +223,7 @@ app.get('/spotify-proxy', async (req, res) => {
 });
 
 app.post('/download-song', async (req, res) => {
-  const { trackName, artistName, albumName, albumArtUrl } = req.body;
+  const { trackName, artistName, albumName, albumArtUrl, year } = req.body;
   info(`Download Task: "${trackName}" by "${artistName}" from album "${albumName}"`);
 
   if (!trackName || !artistName || !albumName) {
@@ -225,13 +250,11 @@ app.post('/download-song', async (req, res) => {
   }
 
   info(`Searching YouTube: "${searchQuery}"`);
-  const searchProcess = ytdlp.exec([`ytsearch1:"${searchQuery}"`, '--dump-json']);
-  let searchResultJson = '';
-  searchProcess.stdout.on('data', (data) => {
-    searchResultJson += data.toString();
-  });
+  
+  try {
+    const searchArgs = [`ytsearch1:"${searchQuery}"`, '--dump-json'];
+    const searchResultJson = await runYtDlp(searchArgs);
 
-  searchProcess.on('close', async () => {
     if (!searchResultJson) {
       error(`No YouTube results for: "${searchQuery}"`);
       return res.status(404).json({ error: 'Could not find a YouTube video for the song.' });
@@ -241,24 +264,35 @@ app.post('/download-song', async (req, res) => {
       await fs.mkdir(targetFolderPath, { recursive: true });
       const videoInfo = JSON.parse(searchResultJson);
 
-      if (!videoInfo || videoInfo.length === 0) {
+      if (!videoInfo) {
         return res.status(404).json({ error: 'Could not find a YouTube video for the song.' });
       }
 
-      const videoUrl = videoInfo.webpage_url;
+      // Handle playlist-like results (though ytsearch1 should return one object, sometimes dump-json can return multiple newline-delimited objects if strict not used, but here we expect one)
+      // If it's a list, take the first one. 
+      // Actually ytsearch1 returns a single object usually. If it returns multiple lines, JSON.parse might fail if it's not an array.
+      // yt-dlp --dump-json output is one JSON object per line.
+      // Since we use ytsearch1, we expect 1 result. 
+
+      const videoUrl = videoInfo.webpage_url || videoInfo.url;
       info(`Downloading from YouTube: ${videoUrl}`);
 
-      // Download audio and convert to MP3 using ytdlp.exec
-      await new Promise((resolve, reject) => {
-        const downloadProcess = ytdlp.exec([
-          videoUrl,
-          '-x',
-          '--audio-format', 'mp3',
-          '--output', outputFilePath,
-        ]);
-        downloadProcess.on('close', resolve);
-        downloadProcess.on('error', reject);
-      });
+      // Download audio and convert to MP3 using runYtDlp
+      const downloadArgs = [
+        videoUrl,
+        '-x',
+        '--audio-format', 'mp3',
+        '--output', outputFilePath,
+      ];
+
+      await runYtDlp(downloadArgs);
+
+      // Verify file exists before proceeding
+      try {
+        await fs.access(outputFilePath);
+      } catch (err) {
+        throw new Error(`File was not created at ${outputFilePath}`);
+      }
 
       info('Injecting metadata...');
 
@@ -267,6 +301,7 @@ app.post('/download-song', async (req, res) => {
         title: trackName,
         artist: artistName,
         album: albumName,
+        year: year,
       };
 
       if (albumArtUrl) {
@@ -288,26 +323,19 @@ app.post('/download-song', async (req, res) => {
         }
       }
 
-      try {
-        await NodeID3.Promise.write(tags, outputFilePath);
-        info('ID3 tags written successfully.');
-      } catch (id3Error) {
-        error(`Failed to write ID3 tags: ${id3Error.message}`);
-      }
-
+      await NodeID3.Promise.write(tags, outputFilePath);
+      info('ID3 tags written successfully.');
 
       info(`Completed download: ${outputFilePath}`);
       res.json({ message: 'Song downloaded and converted successfully', filePath: outputFilePath });
-    } catch (error) {
-      error(`Download failure for "${trackName}": ${error.message}`);
+    } catch (err) {
+      error(`Download failure for "${trackName}": ${err.message}`);
       res.status(500).json({ error: 'An error occurred during song download.' });
     }
-  });
-
-  searchProcess.on('error', (err) => {
-    error('Error executing ytdlp search:', err);
+  } catch (err) {
+    error(`Error executing ytdlp search: ${err.message}`);
     res.status(500).json({ error: 'An error occurred during YouTube search.' });
-  });
+  }
 });
 
 
@@ -439,10 +467,34 @@ app.get('/api/files/:id/art', async (req, res) => {
 
 app.put('/api/files/:id/metadata', async (req, res) => {
     const { id } = req.params;
-    const { title, artist, album, trackNumber, year } = req.body;
+    const { title, artist, album, trackNumber, year, artworkUrl } = req.body;
     try {
         info(`Updating metadata for song ID: ${id}`);
         const tags = { title, artist, album, trackNumber, year };
+
+        if (artworkUrl) {
+            try {
+                const imageResponse = await fetch(artworkUrl);
+                if (imageResponse.ok) {
+                    const imageBuffer = await imageResponse.arrayBuffer();
+                    const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+                    tags.image = {
+                        mime: contentType,
+                        type: {
+                            id: 3,
+                            name: 'front cover'
+                        },
+                        description: 'Album Art',
+                        imageBuffer: Buffer.from(imageBuffer)
+                    };
+                } else {
+                    warning(`Failed to fetch artwork from URL: ${artworkUrl}`);
+                }
+            } catch (imgErr) {
+                warning(`Error fetching artwork: ${imgErr.message}`);
+            }
+        }
+
         await updateSongMetadata(id, tags);
         info(`Metadata updated for: "${title}" by "${artist}"`);
         res.json({ message: 'Metadata updated successfully.' });

@@ -1,18 +1,30 @@
+networks:
+  cloudflare-net:
+    external: true
+
 services:
   server:
+    container_name: Spotify-Downloader-BACKEND
     build: ./server
+    networks:
+      cloudflare-net:
+        ipv4_address: 172.24.0.7
     ports:
       - "3001:3001"
     env_file:
       - ./server/.env
     volumes:
-      - ./downloads:/usr/src/downloads
+      - /home/w1l/plexamp-music:/usr/src/downloads
     dns:
       - 8.8.8.8
       - 8.8.4.4
 
   client:
+    container_name: Spotify-Downloader-FRONTEND
     build: ./client
+    networks:
+      cloudflare-net:
+        ipv4_address: 172.24.0.8
     ports:
       - "3000:80"
     depends_on:

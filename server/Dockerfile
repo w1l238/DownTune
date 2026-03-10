@@ -1,8 +1,15 @@
 # Use an official Node.js runtime as a parent image
 FROM node:18-slim
 
-# Install Python, pip, and ffmpeg
-RUN apt-get update && apt-get install -y python3 python3-pip ffmpeg
+# Install Python, pip, ffmpeg, curl, and unzip
+RUN apt-get update && apt-get install -y python3 python3-pip ffmpeg curl unzip
+
+# Install Deno (for yt-dlp JS runtime)
+RUN curl -fsSL https://github.com/denoland/deno/releases/latest/download/deno-x86_64-unknown-linux-gnu.zip -o deno.zip \
+    && unzip deno.zip \
+    && mv deno /usr/local/bin/deno \
+    && chmod +x /usr/local/bin/deno \
+    && rm deno.zip
 
 # Install/update yt-dlp
 RUN pip3 install -U yt-dlp --break-system-packages

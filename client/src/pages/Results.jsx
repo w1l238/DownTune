@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FiDownload, FiRefreshCw, FiSearch, FiCheck } from 'react-icons/fi';
 import Popup from '../components/Popup';
+import { API_BASE_URL } from '../config';
 import './css/Results.css';
 
 const Results = () => {
@@ -32,7 +33,7 @@ const Results = () => {
 
     const fetchLibrary = async () => {
         try {
-            const response = await fetch('http://localhost:3001/api/library');
+            const response = await fetch(`${API_BASE_URL}/api/library`);
             if (response.ok) {
                 const data = await response.json();
                 setLibrary(data);
@@ -55,7 +56,7 @@ const Results = () => {
         const limit = localStorage.getItem('spotify_results_limit') || 20;
 
         try {
-            const response = await fetch(`http://localhost:3001/search-spotify?q=${encodeURIComponent(query)}&limit=${limit}`);
+            const response = await fetch(`${API_BASE_URL}/search-spotify?q=${encodeURIComponent(query)}&limit=${limit}`);
             if (response.ok) {
                 const data = await response.json();
                 setResults(data.tracks); // Update results directly since we are on the page
@@ -85,11 +86,12 @@ const Results = () => {
             trackName: track.name,
             artistName: track.artists.map(artist => artist.name).join(', '),
             albumName: track.album.name,
-            albumArtUrl: track.album.images[0]?.url
+            albumArtUrl: track.album.images[0]?.url,
+            year: track.album.release_date ? track.album.release_date.substring(0, 4) : undefined
         };
 
         try {
-            const response = await fetch('http://localhost:3001/download-song', {
+            const response = await fetch(`${API_BASE_URL}/download-song`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -121,7 +123,7 @@ const Results = () => {
         if (!url) return;
 
         try {
-            const response = await fetch(`http://localhost:3001/spotify-proxy?url=${encodeURIComponent(url)}`);
+            const response = await fetch(`${API_BASE_URL}/spotify-proxy?url=${encodeURIComponent(url)}`);
             if (response.ok) {
                 const data = await response.json();
                 setResults(data.tracks);

@@ -267,7 +267,7 @@ export async function updateSongMetadata(id, tags) {
         if (!fullPath.startsWith(downloadsDir)) throw new Error('Invalid path');
 
         // Write tags
-        await NodeID3.Promise.write(tags, fullPath);
+        await NodeID3.Promise.update(tags, fullPath);
         
         // Clear cache so it rescans on next get
         libraryCache = [];

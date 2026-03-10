@@ -197,6 +197,20 @@
         transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1); /* Smooth corner rounding and height */
     }
 
+    /* HIde the navbar when the user clicks the search bar on mobile
+       - Addresses navbar being above the virtual keyboard on mobile devices
+    */
+    body.search-focused .navbar {
+        opacity: 0;
+        visibility: hidden; /* Makes it unclickable and removes it from screen readers */
+        pointer-events: none; /* Extra insurance so you can't click invisible buttons */
+        transform: translateY(20px); /* Optional: adds a slight downward slide effect */
+        transition: 
+            opacity 0.4s ease,
+            visibility 0.4s,
+            transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
     .navbar-left,
     .navbar-links {
         display: contents;
@@ -242,10 +256,26 @@
 
     /* Restore standard navbar when search bar detaches */
     body.search-focused .navbar.home-navbar {
-        min-height: 3.5rem;
-        padding-bottom: 0.7rem;
-        border-radius: 2rem;
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        min-height: 3.5rem; /* Shorter height to let it sit lower */
+        padding-bottom: 0.5rem; /* Tighten the bottom gap */
+        margin-bottom: 0.5rem; /* Push the whole capsule closer to the edge */
+        background-color: transparent; /* Optional: hide the glass background of the navbar itself */
+        border-color: transparent;
+        box-shadow: none;
+    }
+
+    body.search-focused .nav-link,
+    body.search-focused .settings-icon,
+    body.search-focused .navbar-left {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+
+    body.search-focused .search-container {
+        transform: translateY(10px); /* Adjust this value to "drop" it into place */
+        transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     /* Merged look when bulk action bar is showing in Library */
