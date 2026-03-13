@@ -47,7 +47,7 @@ const LazyAlbumCard = ({ album, index, animationsDone, handleAlbumClick, lastUpd
 const Library = () => {
     const [songs, setSongs] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchQuery, setSearchQuery] = useState(sessionStorage.getItem('library_search_query') || '');
     const [view, setView] = useState('albums'); // 'albums' | 'songs'
     const [selectedAlbum, setSelectedAlbum] = useState(null);
     const [deleteModal, setDeleteModal] = useState({ show: false, songId: null, songTitle: '' });
@@ -67,6 +67,10 @@ const Library = () => {
     const [lastUpdate, setLastUpdate] = useState(Date.now());
     const animationTimer = useRef(null);
     const containerRef = useRef(null);
+
+    useEffect(() => {
+        sessionStorage.setItem('library_search_query', searchQuery);
+    }, [searchQuery]);
 
     const activeSong = useMemo(() => 
         songs.find(s => s.id === openMenuId), 
@@ -230,7 +234,7 @@ const Library = () => {
     };
 
     const handleEditClick = (song) => {
-        setEditModal({ show: true, song: { ...song } });
+        setEditModal({ show: true, song: { ...song, releaseTime: song.releaseTime || song.year } });
     };
 
     const saveMetadata = async () => {
@@ -245,7 +249,9 @@ const Library = () => {
                     title: song.title,
                     artist: song.artist,
                     album: song.album,
+                    trackNumber: song.trackNumber,
                     year: song.year,
+                    releaseTime: song.releaseTime,
                     artworkUrl: song.artworkUrl
                 })
             });
@@ -361,8 +367,8 @@ const Library = () => {
             if (showFavoritesOnly) {
                 albumSongs = albumSongs.filter(s => s.isLiked);
             }
-            if (!query) return albumSongs;
-            return albumSongs.filter(s => s.title.toLowerCase().includes(query));
+            // Ignore search query in song view as per request
+            return albumSongs;
         }
         return [];
     }, [albums, songs, view, selectedAlbum, searchQuery, showFavoritesOnly]);
@@ -374,7 +380,7 @@ const Library = () => {
         setAnimationsDone(false);
         setSelectedAlbum(album);
         setView('songs');
-        setSearchQuery(''); // Clear search when entering album
+        // Removed: setSearchQuery(''); // Clear search when entering album
         setSelectedIds([]);
         setIsSelectionMode(false);
         animationTimer.current = setTimeout(() => setAnimationsDone(true), 1500);
@@ -387,7 +393,7 @@ const Library = () => {
         setAnimationsDone(false);
         setView('albums');
         setSelectedAlbum(null);
-        setSearchQuery('');
+        // Removed: setSearchQuery('');
         setSelectedIds([]);
         setIsSelectionMode(false);
         animationTimer.current = setTimeout(() => setAnimationsDone(true), 1500);
@@ -531,11 +537,11 @@ const Library = () => {
                 </div>
 
                 <div className="library-controls">
-                     <div className="library-search">
+                     <div className={`library-search ${view !== 'albums' ? 'hidden' : ''}`}>
                         <FiSearch style={{ marginRight: '0.5rem', opacity: 0.7 }} />
                         <input 
                             type="text" 
-                            placeholder={view === 'albums' ? "Search albums..." : "Search song..."}
+                            placeholder="Search albums..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
@@ -755,12 +761,31 @@ const Library = () => {
                                 value={editModal.song.album} 
                                 onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, album: e.target.value } })}
                             />
+                            
                             <label>Year</label>
                             <input 
                                 type="number" 
                                 value={editModal.song.year || ''} 
                                 onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, year: e.target.value } })}
+                                placeholder="e.g. 2024"
                             />
+
+                            <label>Track Number</label>
+                            <input 
+                                type="text" 
+                                value={editModal.song.trackNumber || ''} 
+                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, trackNumber: e.target.value } })}
+                                placeholder="e.g. 1"
+                            />
+
+                            <label>Release Year (Detailed)</label>
+                            <input 
+                                type="text" 
+                                value={editModal.song.releaseTime || ''} 
+                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, releaseTime: e.target.value } })}
+                                placeholder="e.g. 2024-03-12"
+                            />
+                            
                             <label>New Artwork URL (Optional)</label>
                             <input 
                                 type="text" 
