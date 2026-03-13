@@ -109,6 +109,16 @@
     pointer-events: none; /* Prevent interaction while dimmed, but keep visual consistency */
 }
 
+.settings-section.setting-disabled {
+    opacity: 0.5;
+    filter: grayscale(0.5);
+    cursor: not-allowed;
+}
+
+.settings-section.setting-disabled input {
+    cursor: not-allowed;
+}
+
 .settings-section:not(.z-top):hover {
     transform: translateY(-5px);
     background-color: rgba(255, 255, 255, 0.08);
