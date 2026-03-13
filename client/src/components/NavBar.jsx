@@ -22,10 +22,10 @@ const NavBar = () => {
         const limit = localStorage.getItem('spotify_results_limit') || 20;
 
         try {
-            const response = await fetch(`${API_BASE_URL}/search-spotify?q=${encodeURIComponent(query)}&limit=${limit}`);
+            const response = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(query)}&limit=${limit}`);
             if (response.ok) {
                 const data = await response.json();
-                navigate('/results', { state: { results: data.tracks, query } });
+                navigate('/results', { state: { results: data, query } });
                 document.activeElement.blur();
             } else {
                 console.error('Search failed');
