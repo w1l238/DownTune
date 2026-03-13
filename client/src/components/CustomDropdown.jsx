@@ -5,13 +5,18 @@ import './css/CustomDropdown.css';
 const CustomDropdown = ({ options, value, onChange, placeholder = "Select an option", onToggle }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
+    const isInitialMount = useRef(true);
 
-    // Notify parent of toggle state
+    // Notify parent of toggle state only when isOpen changes
     useEffect(() => {
+        if (isInitialMount.current) {
+            isInitialMount.current = false;
+            return;
+        }
         if (onToggle) {
             onToggle(isOpen);
         }
-    }, [isOpen, onToggle]);
+    }, [isOpen]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
