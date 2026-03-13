@@ -14,6 +14,7 @@ const Settings = () => {
     const [clientId, setClientId] = useState('');
     const [clientSecret, setClientSecret] = useState('');
     const [downloadPath, setDownloadPath] = useState('');
+    const [searchProvider, setSearchProvider] = useState('spotify');
     const [autoScan, setAutoScan] = useState(false);
     const [background, setBackground] = useState('linear-gradient(-45deg, #0350a2, #23a6d5, #23d5ab, #0350a2)');
     const [popup, setPopup] = useState({ visible: false, message: '', type: '' });
@@ -56,6 +57,7 @@ const Settings = () => {
                 if (data.clientId) setClientId(data.clientId);
                 if (data.clientSecret) setClientSecret(data.clientSecret);
                 if (data.downloadPath) setDownloadPath(data.downloadPath);
+                if (data.searchProvider) setSearchProvider(data.searchProvider);
             })
             .catch(err => console.error('Error fetching config:', err));
     }, []);
@@ -88,7 +90,7 @@ const Settings = () => {
             const response = await fetch(`${API_BASE_URL}/config`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ clientId, clientSecret, downloadPath })
+                body: JSON.stringify({ clientId, clientSecret, downloadPath, searchProvider })
             });
             if (!response.ok) {
                 const errData = await response.json();
@@ -143,13 +145,44 @@ const Settings = () => {
                         />
                         <p className="setting-desc">Choose a color theme for the application.</p>
                     </div>
+
+                    <div className="section-header" style={{ marginTop: '2rem' }}>
+                        <FiHardDrive />
+                        <h2>File System</h2>
+                    </div>
+                    <div className="setting-group">
+                        <label htmlFor="download-path">Download Location</label>
+                        <input
+                            type="text"
+                            id="download-path"
+                            value={downloadPath}
+                            onChange={(e) => setDownloadPath(e.target.value)}
+                            placeholder="e.g. /home/user/Music"
+                        />
+                        <p className="setting-desc">
+                            Absolute path to save downloads. Leave empty for default.
+                        </p>
+                    </div>
                 </div>
 
                 {/* Library & Search Section */}
-                <div className={`settings-section ${!animationsDone ? 'fade-in' : ''} ${activeSection ? 'dimmed' : ''}`} style={{ animationDelay: '0.2s' }}>
+                <div className={`settings-section ${!animationsDone ? 'fade-in' : ''} ${activeSection === 'library' ? 'z-top' : (activeSection ? 'dimmed' : '')}`} style={{ animationDelay: '0.2s' }}>
                     <div className="section-header">
                         <FiDatabase />
                         <h2>Library & Search</h2>
+                    </div>
+                    <div className="setting-group">
+                        <label htmlFor="search-provider">Search Provider</label>
+                        <CustomDropdown 
+                            options={[
+                                { name: 'Spotify', value: 'spotify' },
+                                { name: 'Deezer', value: 'deezer' }
+                            ]}
+                            value={searchProvider}
+                            onChange={setSearchProvider}
+                            onToggle={(isOpen) => setActiveSection(isOpen ? 'library' : null)}
+                        />
+                        <p className="setting-desc">Choose which service to use for searching songs.</p>
                     </div>
                     <div className="setting-group">
                         <label className="checkbox-label">
@@ -177,7 +210,7 @@ const Settings = () => {
                 </div>
 
                 {/* Spotify API Section */}
-                <div className={`settings-section ${!animationsDone ? 'fade-in' : ''} ${activeSection ? 'dimmed' : ''}`} style={{ animationDelay: '0.3s' }}>
+                <div className={`settings-section ${!animationsDone ? 'fade-in' : ''} ${activeSection ? 'dimmed' : ''} ${searchProvider !== 'spotify' ? 'setting-disabled' : ''}`} style={{ animationDelay: '0.3s' }}>
                     <div className="section-header">
                         <FiSettings />
                         <h2>Spotify API</h2>
@@ -190,6 +223,7 @@ const Settings = () => {
                             value={clientId}
                             onChange={(e) => setClientId(e.target.value)}
                             placeholder="Enter your Spotify Client ID"
+                            disabled={searchProvider !== 'spotify'}
                         />
                     </div>
                     <div className="setting-group">
@@ -200,31 +234,16 @@ const Settings = () => {
                             value={clientSecret}
                             onChange={(e) => setClientSecret(e.target.value)}
                             placeholder="Enter your Spotify Client Secret"
+                            disabled={searchProvider !== 'spotify'}
                         />
                     </div>
-                    <p className="setting-desc">Required for searching songs on Spotify.</p>
+                    <p className="setting-desc">
+                        {searchProvider === 'spotify' 
+                            ? 'Required for searching songs on Spotify.' 
+                            : 'Only required if Spotify is selected as the provider.'}
+                    </p>
                 </div>
 
-                {/* Storage Section */}
-                <div className={`settings-section ${!animationsDone ? 'fade-in' : ''} ${activeSection ? 'dimmed' : ''}`} style={{ animationDelay: '0.4s' }}>
-                    <div className="section-header">
-                        <FiHardDrive />
-                        <h2>Storage</h2>
-                    </div>
-                    <div className="setting-group">
-                        <label htmlFor="download-path">Download Location</label>
-                        <input
-                            type="text"
-                            id="download-path"
-                            value={downloadPath}
-                            onChange={(e) => setDownloadPath(e.target.value)}
-                            placeholder="e.g. /home/user/Music"
-                        />
-                        <p className="setting-desc">
-                            Absolute path to save downloads. Leave empty for default.
-                        </p>
-                    </div>
-                </div>
             </div>
             
             <button className="save-btn-bottom mobile-only fade-in" style={{ animationDelay: '0.5s' }} onClick={handleSave}>
