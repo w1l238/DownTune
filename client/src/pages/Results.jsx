@@ -56,13 +56,12 @@ const Results = () => {
         const limit = localStorage.getItem('spotify_results_limit') || 20;
 
         try {
-            const response = await fetch(`${API_BASE_URL}/search-spotify?q=${encodeURIComponent(query)}&limit=${limit}`);
+            const response = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(query)}&limit=${limit}`);
             if (response.ok) {
                 const data = await response.json();
-                setResults(data.tracks); // Update results directly since we are on the page
-                // Optionally update URL/history if we want back button to work for searches?
-                // navigate('/results', { state: { results: data.tracks } }); // This pushes new entry
-                window.history.pushState({ results: data.tracks, query }, ''); // Or just set state
+                // Both providers now return { items: [] } format
+                setResults(data); 
+                window.history.pushState({ results: data, query }, '');
                 document.activeElement.blur(); // Dismiss keyboard
             } else {
                 setPopup({ visible: true, message: 'Search failed. Check server status.', type: 'error' });
@@ -87,7 +86,11 @@ const Results = () => {
             artistName: track.artists.map(artist => artist.name).join(', '),
             albumName: track.album.name,
             albumArtUrl: track.album.images[0]?.url,
-            year: track.album.release_date ? track.album.release_date.substring(0, 4) : undefined
+            year: track.album.release_date ? track.album.release_date.substring(0, 4) : undefined,
+            trackNumber: track.trackNumber,
+            isYoutube: track.isYoutube,
+            isDeezer: track.isDeezer,
+            url: track.url
         };
 
         try {
@@ -123,10 +126,10 @@ const Results = () => {
         if (!url) return;
 
         try {
-            const response = await fetch(`${API_BASE_URL}/spotify-proxy?url=${encodeURIComponent(url)}`);
+            const response = await fetch(`${API_BASE_URL}/api/proxy?url=${encodeURIComponent(url)}`);
             if (response.ok) {
                 const data = await response.json();
-                setResults(data.tracks);
+                setResults(data);
             } else {
                 console.error('Failed to fetch page');
             }
