@@ -23,32 +23,11 @@ const getBaseDownloadPath = () => {
 import { spawn } from 'child_process';
 import NodeID3 from 'node-id3';
 import { getLibrary, refreshLibrary, deleteSong, getSongArt, updateSongMetadata, toggleFavorite, bulkLike, bulkDelete } from './libraryManager.js';
-
-// Helper to run yt-dlp directly
-const runYtDlp = (args) => {
-  return new Promise((resolve, reject) => {
-    const fullArgs = ['-m', 'yt_dlp', ...args];
-    info(`[DEBUG] Executing: python3 ${fullArgs.join(' ')}`);
-
-    const childProcess = spawn('python3', fullArgs, {
-      env: { ...process.env, HOME: '/tmp' }
-    });
-    let stdout = '';
-    let stderr = '';
-
-    childProcess.stdout.on('data', (data) => stdout += data.toString());
-    childProcess.stderr.on('data', (data) => stderr += data.toString());
-
-    childProcess.on('close', (code) => {
-      if (code === 0) {
-        resolve(stdout);
-      } else {
-        reject(new Error(`yt-dlp process exited with code ${code}: ${stderr}`));
-      }
-    });
-    childProcess.on('error', (err) => reject(err));
-  });
-};
+import { runYtDlp } from './utils/yt-dlp-helper.js';
+import { SpotifyProvider } from './providers/SpotifyProvider.js';
+import { YoutubeMusicProvider } from './providers/YoutubeMusicProvider.js';
+import { DeezerProvider } from './providers/DeezerProvider.js';
+import { metadataService } from './services/MetadataService.js';
 
 const app = express();
 const port = 3001;
@@ -61,15 +40,15 @@ let tokenExpiryTime = 0;
 
 // Function to get Spotify Access Token
 async function getSpotifyAccessToken() {
-  info('Requesting Spotify access token from accounts.spotify.com...');
   const clientId = process.env.SPOTIFY_CLIENT_ID;
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    error('SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET is missing in .env');
+    warning('Spotify credentials missing. Spotify provider will not be available.');
     return null;
   }
 
+  info('Requesting Spotify access token from accounts.spotify.com...');
   const authString = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
   try {
@@ -112,7 +91,9 @@ app.use(async (req, res, next) => {
     info(logMsg);
   });
 
-  if (!spotifyAccessToken || Date.now() >= tokenExpiryTime) {
+  const hasSpotifyCreds = process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET;
+
+  if (hasSpotifyCreds && (!spotifyAccessToken || Date.now() >= tokenExpiryTime)) {
     const reason = !spotifyAccessToken ? 'initially missing' : 'expired';
     info(`Spotify access token ${reason}. Refreshing...`);
     await getSpotifyAccessToken();
@@ -121,40 +102,56 @@ app.use(async (req, res, next) => {
 });
 
 
+// Helper to get the current search provider
+const getSearchProvider = () => {
+  const providerType = process.env.SEARCH_PROVIDER || 'spotify';
+  const type = providerType.toLowerCase();
+  
+  if (type === 'deezer' || type === 'youtube') {
+    return new DeezerProvider();
+  }
+  return new SpotifyProvider(spotifyAccessToken);
+};
+
 app.get('/', (req, res) => {
   res.send('Hello from the backend!');
 });
 
-// Endpoint to search Spotify
-app.get('/search-spotify', async (req, res) => {
+// Generic Search Endpoint
+app.get('/api/search', async (req, res) => {
   const query = req.query.q;
-  const limit = req.query.limit || 10;
-  info(`Spotify Search: "${query}" (limit: ${limit})`);
+  const limit = parseInt(req.query.limit) || 10;
+  
   if (!query) {
     return res.status(400).json({ error: 'Query parameter "q" is required.' });
   }
 
-  if (!spotifyAccessToken) {
-    return res.status(500).json({ error: 'Spotify access token not available.' });
+  try {
+    const provider = getSearchProvider();
+    const results = await provider.search(query, limit);
+    res.json(results);
+  } catch (err) {
+    error(`Search failed using ${process.env.SEARCH_PROVIDER || 'spotify'}:`, err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Legacy Endpoint to search Spotify (kept for compatibility)
+app.get('/search-spotify', async (req, res) => {
+  const query = req.query.q;
+  const limit = req.query.limit || 10;
+  info(`Spotify Search (Legacy): "${query}" (limit: ${limit})`);
+  if (!query) {
+    return res.status(400).json({ error: 'Query parameter "q" is required.' });
   }
 
   try {
-    const response = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`, {
-      headers: {
-        'Authorization': `Bearer ${spotifyAccessToken}`
-      }
-    });
-
-    const data = await response.json();
-    if (response.ok) {
-      res.json(data);
-    } else {
-      error('Error searching Spotify:', data);
-      res.status(response.status).json({ error: data.error.message || 'Error searching Spotify' });
-    }
+    const provider = getSearchProvider();
+    const results = await provider.search(query, limit);
+    // Legacy endpoint expects { tracks: { items, ... } }
+    res.json({ tracks: results }); 
   } catch (error) {
-    error('Network error while searching Spotify:', error);
-    res.status(500).json({ error: 'Network error while searching Spotify' });
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -190,91 +187,163 @@ app.post('/create-folder-structure', async (req, res) => {
   }
 });
 
-app.get('/spotify-proxy', async (req, res) => {
+app.get('/api/proxy', async (req, res) => {
   const { url } = req.query;
-  info(`Spotify Proxy request to: ${url}`);
-
   if (!url) {
     return res.status(400).json({ error: 'URL parameter is required.' });
   }
 
-  if (!spotifyAccessToken) {
-    return res.status(500).json({ error: 'Spotify access token not available.' });
+  info(`Proxy request to: ${url}`);
+
+  const isSpotify = url.includes('api.spotify.com');
+  const headers = {};
+
+  if (isSpotify) {
+    if (!spotifyAccessToken) {
+      return res.status(500).json({ error: 'Spotify access token not available.' });
+    }
+    headers['Authorization'] = `Bearer ${spotifyAccessToken}`;
   }
 
   try {
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${spotifyAccessToken}`
-      }
-    });
-
+    const response = await fetch(url, { headers });
     const data = await response.json();
+
     if (response.ok) {
+      // Map results to unified format if it's a pagination call
+      if (isSpotify && data.tracks) {
+        return res.json({
+          items: data.tracks.items,
+          next: data.tracks.next,
+          previous: data.tracks.previous
+        });
+      } else if (isSpotify && data.items) {
+          // If it's a direct tracks page from Spotify
+          return res.json({
+            items: data.items,
+            next: data.next,
+            previous: data.previous
+          });
+      } else if (url.includes('api.deezer.com')) {
+          // Map Deezer pagination
+          const items = (data.data || []).map(track => ({
+            id: `deezer-${track.id}`,
+            name: track.title,
+            artists: [{ name: track.artist.name }],
+            album: {
+              name: track.album.title,
+              images: [
+                { url: track.album.cover_xl, height: 1000, width: 1000 },
+                { url: track.album.cover_medium, height: 250, width: 250 },
+                { url: track.album.cover_small, height: 56, width: 56 }
+              ].filter(img => img.url)
+            },
+            isDeezer: true,
+            url: track.link
+          }));
+          return res.json({
+            items,
+            next: data.next,
+            previous: data.prev
+          });
+      }
       res.json(data);
     } else {
-      error('Error proxying Spotify request:', data);
-      res.status(response.status).json({ error: data.error.message || 'Error proxying Spotify request' });
+      error(`Error proxying request to ${url}:`, data);
+      res.status(response.status).json({ error: data.error?.message || 'Error proxying request' });
     }
   } catch (error) {
-    error('Network error while proxying Spotify request:', error);
-    res.status(500).json({ error: 'Network error while proxying Spotify request' });
+    error(`Network error while proxying request to ${url}:`, error);
+    res.status(500).json({ error: 'Network error while proxying request' });
   }
 });
 
 app.post('/download-song', async (req, res) => {
-  const { trackName, artistName, albumName, albumArtUrl, year } = req.body;
+  info(`[DEBUG] Incoming Download Request: ${JSON.stringify(req.body)}`);
+  let { trackName, artistName, albumName, albumArtUrl, year, trackNumber, genre, isYoutube, isDeezer, url: videoUrl } = req.body;
   info(`Download Task: "${trackName}" by "${artistName}" from album "${albumName}"`);
 
   if (!trackName || !artistName || !albumName) {
     return res.status(400).json({ error: 'Track name, artist name, and album name are required.' });
   }
 
-  const searchQuery = `${trackName} ${artistName}`;
   const baseDownloadPath = getBaseDownloadPath();
+  let videoInfo = null;
 
-  const safeArtistName = sanitizeFilename(artistName);
-  const safeAlbumName = sanitizeFilename(albumName);
-  const safeTrackName = sanitizeFilename(trackName);
-
-  const targetFolderPath = path.join(baseDownloadPath, safeArtistName, safeAlbumName);
-  const outputFilePath = path.join(targetFolderPath, `${safeTrackName}.mp3`);
-
-  // Check if the file already exists
   try {
-    await fs.access(outputFilePath);
-    info(`Song exists, skipping download: ${outputFilePath}`);
-    return res.status(200).json({ status: 'exists', message: 'Song already downloaded' });
-  } catch (error) {
-    // File does not exist, proceed with download
-  }
+    if (isYoutube && videoUrl) {
+      info(`Direct Download via YouTube URL: ${videoUrl}`);
+      // Fetch full metadata if it's YouTube and we have a placeholder album
+      if (albumName === 'YouTube Music') {
+          try {
+              const infoJson = await runYtDlp([videoUrl, '--dump-json', '--skip-download']);
+              videoInfo = JSON.parse(infoJson);
+              if (videoInfo) {
+                  trackName = videoInfo.track || trackName;
+                  artistName = videoInfo.artist || artistName;
+                  trackNumber = videoInfo.track_number || trackNumber;
+                  if (videoInfo.album) albumName = videoInfo.album;
+                  else if (videoInfo.description && videoInfo.description.includes('Provided to YouTube by')) {
+                      const descLines = videoInfo.description.split('\n').map(l => l.trim()).filter(l => l !== '');
+                      if (descLines.length >= 3 && descLines[1].includes(' \u00b7 ')) {
+                          const parts = descLines[1].split(' \u00b7 ');
+                          trackName = parts[0];
+                          artistName = parts[1];
+                          albumName = descLines[2];
+                      }
+                  }
+                  year = videoInfo.upload_date ? videoInfo.upload_date.substring(0, 4) : year;
+              }
+          } catch (e) {
+              warning(`Failed to fetch full metadata for YouTube URL: ${e.message}`);
+          }
+      }
+    } else {
+      // For Spotify or Deezer, we need to find the song on YouTube
+      const searchQuery = `${trackName} ${artistName}`;
+      info(`Searching YouTube for: "${searchQuery}"`);
+      const searchArgs = [`ytsearch1:"${searchQuery}"`, '--dump-json'];
+      const searchResultJson = await runYtDlp(searchArgs);
 
-  info(`Searching YouTube: "${searchQuery}"`);
-  
-  try {
-    const searchArgs = [`ytsearch1:"${searchQuery}"`, '--dump-json'];
-    const searchResultJson = await runYtDlp(searchArgs);
+      if (!searchResultJson) {
+        error(`No YouTube results for: "${searchQuery}"`);
+        return res.status(404).json({ error: 'Could not find a YouTube video for the song.' });
+      }
+      videoInfo = JSON.parse(searchResultJson);
+      videoUrl = videoInfo.webpage_url || videoInfo.url;
+    }
 
-    if (!searchResultJson) {
-      error(`No YouTube results for: "${searchQuery}"`);
-      return res.status(404).json({ error: 'Could not find a YouTube video for the song.' });
+    // Final enrichment fallback if album is generic or other info is missing
+    let releaseDate = year; // Default to year
+    if (albumName === 'YouTube Music' || !year || !trackNumber || !genre) {
+        const enriched = await metadataService.enrich(artistName, trackName);
+        if (albumName === 'YouTube Music' && enriched.album !== 'YouTube Music') {
+            albumName = enriched.album;
+        }
+        if (!year) year = enriched.year;
+        if (!trackNumber) trackNumber = enriched.trackNumber;
+        if (!genre) genre = enriched.genre;
+        if (enriched.releaseDate) releaseDate = enriched.releaseDate;
+    }
+
+    const safeArtistName = sanitizeFilename(artistName);
+    const safeAlbumName = sanitizeFilename(albumName);
+    const safeTrackName = sanitizeFilename(trackName);
+
+    const targetFolderPath = path.join(baseDownloadPath, safeArtistName, safeAlbumName);
+    const outputFilePath = path.join(targetFolderPath, `${safeTrackName}.mp3`);
+
+    // Check if the file already exists
+    try {
+      await fs.access(outputFilePath);
+      info(`Song exists, skipping download: ${outputFilePath}`);
+      return res.status(200).json({ status: 'exists', message: 'Song already downloaded' });
+    } catch (error) {
+      // File does not exist, proceed with download
     }
 
     try {
       await fs.mkdir(targetFolderPath, { recursive: true });
-      const videoInfo = JSON.parse(searchResultJson);
-
-      if (!videoInfo) {
-        return res.status(404).json({ error: 'Could not find a YouTube video for the song.' });
-      }
-
-      // Handle playlist-like results (though ytsearch1 should return one object, sometimes dump-json can return multiple newline-delimited objects if strict not used, but here we expect one)
-      // If it's a list, take the first one. 
-      // Actually ytsearch1 returns a single object usually. If it returns multiple lines, JSON.parse might fail if it's not an array.
-      // yt-dlp --dump-json output is one JSON object per line.
-      // Since we use ytsearch1, we expect 1 result. 
-
-      const videoUrl = videoInfo.webpage_url || videoInfo.url;
       info(`Downloading from YouTube: ${videoUrl}`);
 
       // Download audio and convert to MP3 using runYtDlp
@@ -295,13 +364,19 @@ app.post('/download-song', async (req, res) => {
       }
 
       info('Injecting metadata...');
+      info(`[DEBUG] Final Tags: title="${trackName}", artist="${artistName}", album="${albumName}", year="${year}", trackNumber="${trackNumber}", releaseTime="${releaseDate}", genre="${genre}"`);
 
       // Inject metadata
       const tags = {
         title: trackName,
         artist: artistName,
         album: albumName,
-        year: year,
+        year: String(year || ''),
+        trackNumber: String(trackNumber || ''),
+        genre: String(genre || ''),
+        releaseTime: String(releaseDate || ''),
+        date: String(releaseDate || year || ''), // Add date for TDRC compatibility
+        originalReleaseTime: String(year || '') // Add original release time
       };
 
       if (albumArtUrl) {
@@ -354,12 +429,15 @@ app.get('/config', async (req, res) => {
         if (key.trim() === 'SPOTIFY_CLIENT_ID') config.clientId = value.trim();
         if (key.trim() === 'SPOTIFY_CLIENT_SECRET') config.clientSecret = value.trim();
         if (key.trim() === 'DOWNLOAD_PATH') config.downloadPath = value.trim();
+        if (key.trim() === 'SEARCH_PROVIDER') config.searchProvider = value.trim();
       }
     });
+    // Default to spotify if not set
+    if (!config.searchProvider) config.searchProvider = 'spotify';
     res.json(config);
   } catch (error) {
     if (error.code === 'ENOENT') {
-      res.json({ clientId: '', clientSecret: '', downloadPath: '' });
+      res.json({ clientId: '', clientSecret: '', downloadPath: '', searchProvider: 'spotify' });
     } else {
       error('Error reading .env file:', error);
       res.status(500).json({ error: 'Failed to read configuration.' });
@@ -369,9 +447,10 @@ app.get('/config', async (req, res) => {
 
 // Endpoint to update environment variables
 app.post('/config', async (req, res) => {
-  const { clientId, clientSecret, downloadPath } = req.body;
-  if (!clientId || !clientSecret) {
-    return res.status(400).json({ error: 'Client ID and Secret are required.' });
+  const { clientId, clientSecret, downloadPath, searchProvider } = req.body;
+  
+  if (searchProvider === 'spotify' && (!clientId || !clientSecret)) {
+    return res.status(400).json({ error: 'Client ID and Secret are required for Spotify.' });
   }
 
   try {
@@ -384,40 +463,47 @@ app.post('/config', async (req, res) => {
     }
 
     const newLines = [];
-    const keysFound = { clientId: false, clientSecret: false, downloadPath: false };
+    const keysFound = { clientId: false, clientSecret: false, downloadPath: false, searchProvider: false };
 
     envContent.split('\n').forEach(line => {
       const [key] = line.split('=');
       const trimmedKey = key ? key.trim() : '';
       if (trimmedKey === 'SPOTIFY_CLIENT_ID') {
-        newLines.push(`SPOTIFY_CLIENT_ID=${clientId}`);
+        newLines.push(`SPOTIFY_CLIENT_ID=${clientId || ''}`);
         keysFound.clientId = true;
       } else if (trimmedKey === 'SPOTIFY_CLIENT_SECRET') {
-        newLines.push(`SPOTIFY_CLIENT_SECRET=${clientSecret}`);
+        newLines.push(`SPOTIFY_CLIENT_SECRET=${clientSecret || ''}`);
         keysFound.clientSecret = true;
       } else if (trimmedKey === 'DOWNLOAD_PATH') {
         if (downloadPath) {
             newLines.push(`DOWNLOAD_PATH=${downloadPath}`);
             keysFound.downloadPath = true;
         }
+      } else if (trimmedKey === 'SEARCH_PROVIDER') {
+        newLines.push(`SEARCH_PROVIDER=${searchProvider || 'spotify'}`);
+        keysFound.searchProvider = true;
       } else if (line.trim() !== '') {
         newLines.push(line);
       }
     });
 
-    if (!keysFound.clientId) newLines.push(`SPOTIFY_CLIENT_ID=${clientId}`);
-    if (!keysFound.clientSecret) newLines.push(`SPOTIFY_CLIENT_SECRET=${clientSecret}`);
+    if (!keysFound.clientId) newLines.push(`SPOTIFY_CLIENT_ID=${clientId || ''}`);
+    if (!keysFound.clientSecret) newLines.push(`SPOTIFY_CLIENT_SECRET=${clientSecret || ''}`);
     if (!keysFound.downloadPath && downloadPath) newLines.push(`DOWNLOAD_PATH=${downloadPath}`);
+    if (!keysFound.searchProvider) newLines.push(`SEARCH_PROVIDER=${searchProvider || 'spotify'}`);
 
     await fs.writeFile(envPath, newLines.join('\n'));
 
     process.env.SPOTIFY_CLIENT_ID = clientId;
     process.env.SPOTIFY_CLIENT_SECRET = clientSecret;
     if (downloadPath) process.env.DOWNLOAD_PATH = downloadPath;
+    if (searchProvider) process.env.SEARCH_PROVIDER = searchProvider;
 
-    await getSpotifyAccessToken();
+    if (clientId && clientSecret) {
+      await getSpotifyAccessToken();
+    }
 
-    res.json({ message: 'Configuration saved and token refreshed.' });
+    res.json({ message: 'Configuration saved.' });
   } catch (error) {
     error('Error writing .env file:', error);
     res.status(500).json({ error: 'Failed to save configuration.' });
@@ -467,10 +553,10 @@ app.get('/api/files/:id/art', async (req, res) => {
 
 app.put('/api/files/:id/metadata', async (req, res) => {
     const { id } = req.params;
-    const { title, artist, album, trackNumber, year, artworkUrl } = req.body;
+    const { title, artist, album, trackNumber, year, releaseTime, artworkUrl } = req.body;
     try {
         info(`Updating metadata for song ID: ${id}`);
-        const tags = { title, artist, album, trackNumber, year };
+        const tags = { title, artist, album, trackNumber, year, releaseTime };
 
         if (artworkUrl) {
             try {
