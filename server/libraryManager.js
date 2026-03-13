@@ -125,6 +125,8 @@ export async function refreshLibrary() {
                     album: metadata.common.album || 'Unknown Album',
                     duration: metadata.format.duration || 0, // Duration in seconds
                     year: metadata.common.year || null,
+                    releaseTime: metadata.common.date || null,
+                    trackNumber: metadata.common.track?.no || null,
                 };
             } catch (err) {
                 error(`Failed to parse metadata for ${filePath}: ${err.message}`);
