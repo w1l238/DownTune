@@ -18,3 +18,20 @@ This server features a simple web downloader for spotify songs. Using spotify AP
 
 ## Docker
 If you want to run it in a docker container edit `docker-compose.yml` to your configuration and add your keys in `backend/.env` and run `docker-compose up --build -d` to get it running.
+
+## Problems
+Below are some bugs/UI elements that need to be changed soon:
+
+1. Mobile search bar needs to come down in '/results' page.
+2. Update the top heading glass element, as the search bar has been hidden, when in a selected album in the '/library' page.
+
+## Future Plans
+Below are some brainstorming of features that may be implemented in the future.
+
+1. Ability to play the selected song without downloading
+    a. Use YouTube video player within page?
+    b. Would require new page
+2. UI theme choices
+    a. Maybe multiple options instead of apple like glass UI?
+3. Ability to view artist and album prior to downloading
+    a. Would require two new pages
