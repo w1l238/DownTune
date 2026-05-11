@@ -6,11 +6,12 @@ services:
   server:
     container_name: Spotify-Downloader-BACKEND
     build: ./server
+    restart: unless-stopped
     networks:
       cloudflare-net:
         ipv4_address: 172.24.0.7
-    ports:
-      - "3001:3001"
+    # Port 3001 is NOT exposed to the host — only reachable by the nginx container
+    # on the shared Docker network. Caddy proxies through nginx, not directly here.
     env_file:
       - ./server/.env
     volumes:
@@ -18,14 +19,22 @@ services:
     dns:
       - 8.8.8.8
       - 8.8.4.4
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
   client:
     container_name: Spotify-Downloader-FRONTEND
     build: ./client
+    restart: unless-stopped
     networks:
       cloudflare-net:
         ipv4_address: 172.24.0.8
     ports:
       - "3000:80"
     depends_on:
-      - server
+      server:
+        condition: service_healthy
