@@ -1,0 +1,188 @@
+/* ===== Queue Dock (bottom bar) ===== */
+.dock {
+    grid-column: 1 / -1;
+    grid-row: 2 / 3;
+    background: var(--sd-glass-10);
+    backdrop-filter: blur(var(--sd-blur-md));
+    -webkit-backdrop-filter: blur(var(--sd-blur-md));
+    border: 1px solid var(--sd-glass-border);
+    border-radius: var(--sd-radius-xl);
+    box-shadow: var(--sd-shadow-md);
+    padding: 0.65rem 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    animation: fadeInUp 0.35s ease forwards;
+    overflow: hidden;
+}
+
+.dock-leaving {
+    animation: dockSlideDown 0.38s ease forwards;
+}
+
+.dock-icon {
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 50%;
+    background: var(--tf-accent-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: background 0.3s ease;
+}
+
+.dock-icon svg {
+    color: white;
+}
+
+.dock-icon-done {
+    background: var(--sd-glass-20);
+}
+
+.dock-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex-shrink: 0;
+    width: 240px;
+}
+
+.dock-count {
+    font-size: 0.68rem;
+    font-weight: var(--sd-fw-bold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--tf-accent-bright);
+    line-height: 1;
+    margin-bottom: 0.1rem;
+}
+
+.dock-meta .t {
+    font-weight: var(--sd-fw-semibold);
+    font-size: 0.92rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: var(--sd-text-shadow);
+}
+
+.dock-meta .s {
+    font-size: 0.75rem;
+    color: var(--sd-fg-4);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dock-progress {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
+}
+
+.dock-bar {
+    height: 6px;
+    background: var(--sd-glass-15);
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.dock-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--tf-accent), var(--tf-accent-bright));
+    border-radius: 99px;
+    transition: width 0.25s linear;
+    box-shadow: 0 0 12px var(--tf-accent-soft);
+}
+
+.dock-pills {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: nowrap;
+    overflow: hidden;
+}
+
+.queue-pill {
+    background: var(--sd-glass-10);
+    border: 1px solid var(--sd-glass-border-soft);
+    border-radius: 99px;
+    padding: 0.2rem 0.55rem 0.2rem 0.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    color: var(--sd-fg-3);
+    max-width: 160px;
+    flex-shrink: 0;
+}
+
+.queue-pill .dot {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--tf-accent), var(--tf-accent-bright));
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.5rem;
+    color: white;
+}
+
+.queue-pill.done .dot {
+    background: var(--sd-glass-20);
+}
+
+.queue-pill.error .dot {
+    background: var(--sd-error);
+}
+
+.queue-pill .lab {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dock-controls {
+    display: flex;
+    gap: 0.4rem;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.dock-btn {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: transparent !important;
+    border: 1px solid var(--sd-glass-border-soft) !important;
+    color: var(--sd-fg-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    box-shadow: none !important;
+    transition: all var(--sd-dur-fast) var(--sd-ease-glass);
+}
+
+.dock-btn:hover {
+    background: var(--sd-glass-15) !important;
+    color: white;
+    transform: none !important;
+}
+
+@keyframes dockSlideDown {
+    from { transform: translateY(0); opacity: 1; }
+    to   { transform: translateY(1.5rem); opacity: 0; }
+}
+
+@media (max-width: 768px) {
+    .dock {
+        display: none;
+    }
+}
