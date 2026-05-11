@@ -1,0 +1,343 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import { FiArrowLeft, FiChevronLeft, FiHeart, FiTrash2, FiMoreVertical, FiEdit, FiX } from 'react-icons/fi';
+import toast, { Toaster } from 'react-hot-toast';
+import { API_BASE_URL } from '../config';
+import './css/Library.css';
+
+const AlbumDetail = () => {
+    const { albumName: encodedName } = useParams();
+    const albumName = decodeURIComponent(encodedName);
+    const navigate = useNavigate();
+
+    const [songs, setSongs] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const albumArtStyle = localStorage.getItem('album_art_style') || 'background';
+    const [deleteModal, setDeleteModal] = useState({ show: false, songId: null, songTitle: '' });
+    const [editModal, setEditModal] = useState({ show: false, song: null });
+    const [menuOpenId, setMenuOpenId] = useState(null);
+    const [menuPos, setMenuPos] = useState(null); // { top|bottom, right } in viewport coords
+
+    useEffect(() => {
+        document.title = `${albumName} — DownTune`;
+        fetch(`${API_BASE_URL}/api/library`)
+            .then(r => r.json())
+            .then(data => {
+                setSongs(data.filter(s => (s.album || 'Unknown Album') === albumName));
+                setLoading(false);
+            })
+            .catch(() => setLoading(false));
+    }, [albumName]);
+
+    const album = useMemo(() => {
+        if (songs.length === 0) return null;
+        return { name: albumName, artist: songs[0].artist || 'Unknown Artist', artId: songs[0].id, songs };
+    }, [songs, albumName]);
+
+    const formatDuration = (s) => {
+        if (!s) return '--:--';
+        const m = Math.floor(s / 60);
+        const sec = Math.floor(s % 60);
+        return `${m}:${sec < 10 ? '0' : ''}${sec}`;
+    };
+
+    const toggleFavorite = async (song) => {
+        setSongs(prev => prev.map(s => s.id === song.id ? { ...s, isLiked: !s.isLiked } : s));
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/files/${encodeURIComponent(song.id)}/toggle-favorite`, { method: 'POST' });
+            if (!res.ok) setSongs(prev => prev.map(s => s.id === song.id ? { ...s, isLiked: song.isLiked } : s));
+        } catch {
+            setSongs(prev => prev.map(s => s.id === song.id ? { ...s, isLiked: song.isLiked } : s));
+        }
+    };
+
+    const likeAlbum = async () => {
+        const allLiked = songs.every(s => s.isLiked);
+        const shouldLike = !allLiked;
+        const ids = songs.map(s => s.id);
+        setSongs(prev => prev.map(s => ({ ...s, isLiked: shouldLike })));
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/library/bulk/favorite`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids, shouldLike }),
+            });
+            if (!res.ok) setSongs(prev => prev.map(s => ({ ...s, isLiked: !shouldLike })));
+            else toast.success(shouldLike ? `Liked all songs in "${albumName}"` : `Unliked all songs in "${albumName}"`);
+        } catch {
+            setSongs(prev => prev.map(s => ({ ...s, isLiked: !shouldLike })));
+        }
+    };
+
+    const handleEditClick = (song) => {
+        setEditModal({ show: true, song: { ...song, releaseTime: song.releaseTime || song.year } });
+    };
+
+    const saveMetadata = async () => {
+        const { song } = editModal;
+        if (!song) return;
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/files/${encodeURIComponent(song.id)}/metadata`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: song.title,
+                    artist: song.artist,
+                    album: song.album,
+                    trackNumber: song.trackNumber,
+                    year: song.year,
+                    releaseTime: song.releaseTime,
+                    artworkUrl: song.artworkUrl,
+                }),
+            });
+            if (res.ok) {
+                toast.success('Metadata updated');
+                setEditModal({ show: false, song: null });
+                // Re-fetch to reflect any changes (e.g. title, artist)
+                const libRes = await fetch(`${API_BASE_URL}/api/library`);
+                if (libRes.ok) {
+                    const data = await libRes.json();
+                    setSongs(data.filter(s => (s.album || 'Unknown Album') === albumName));
+                }
+            } else {
+                const data = await res.json();
+                toast.error(data.error || 'Failed to update metadata');
+            }
+        } catch {
+            toast.error('Network error saving metadata');
+        }
+    };
+
+    const confirmDelete = async () => {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/files/${encodeURIComponent(deleteModal.songId)}`, { method: 'DELETE' });
+            if (res.ok) {
+                const remaining = songs.filter(s => s.id !== deleteModal.songId);
+                setSongs(remaining);
+                toast.success(`Deleted "${deleteModal.songTitle}"`);
+                if (remaining.length === 0) navigate(-1);
+            } else {
+                toast.error('Failed to delete song');
+            }
+        } catch {
+            toast.error('Network error deleting song');
+        } finally {
+            setDeleteModal({ show: false, songId: null, songTitle: '' });
+        }
+    };
+
+    if (loading) return <div style={{ textAlign: 'center', marginTop: '4rem' }}>Loading…</div>;
+
+    if (!album) return (
+        <div style={{ textAlign: 'center', marginTop: '4rem', opacity: 0.6 }}>
+            <p>Album not found.</p>
+            <button className="section-back" onClick={() => navigate(-1)}>
+                <FiArrowLeft size={15} /> Back
+            </button>
+        </div>
+    );
+
+    return (
+        <div className="library-container">
+            <Toaster position="bottom-center" toastOptions={{
+                style: {
+                    background: 'transparent', color: 'white',
+                    backdropFilter: 'blur(15px)', border: '1px solid rgba(255,255,255,0.3)',
+                    borderRadius: '1rem', boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+                }
+            }} />
+
+            <button className="section-back" onClick={() => navigate(-1)}>
+                <FiArrowLeft size={15} /> Back
+            </button>
+
+            <div className={`album-view-header art-${albumArtStyle}`}>
+                <button className="section-back album-back" onClick={() => navigate(-1)}>
+                    <FiChevronLeft size={20} />
+                </button>
+                <div className="album-view-art">
+                    <img
+                        src={`${API_BASE_URL}/api/files/${encodeURIComponent(album.artId)}/art`}
+                        alt={album.name}
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                </div>
+                <div className="album-view-details">
+                    <h1>{album.name}</h1>
+                    <h2>{album.artist}</h2>
+                    <div className="album-actions">
+                        <p>{songs.length} songs</p>
+                        <button
+                            className={`icon-btn favorite-btn ${songs.every(s => s.isLiked) ? 'active' : ''}`}
+                            style={{ borderRadius: '50%' }}
+                            onClick={likeAlbum}
+                            title="Like / Unlike Album"
+                        >
+                            <FiHeart fill={songs.every(s => s.isLiked) ? 'white' : 'none'} style={{ display: 'block' }} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div className="song-list">
+                <div className="song-list-header">
+                    <div>#</div>
+                    <div>Title</div>
+                    <div>Duration</div>
+                    <div />
+                </div>
+                {songs.map((song, index) => (
+                    <div
+                        key={song.id}
+                        className={`song-row ${menuOpenId === song.id ? 'is-active-row' : ''}`}
+                    >
+                        <div className="song-row-num">{index + 1}</div>
+                        <div className="song-row-title">{song.title}</div>
+                        <div className="song-row-duration">{formatDuration(song.duration)}</div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <button
+                                className="icon-btn more-btn"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (menuOpenId === song.id) {
+                                        setMenuOpenId(null);
+                                        setMenuPos(null);
+                                    } else {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        const openUpwards = window.innerHeight - rect.bottom < 200;
+                                        setMenuPos({
+                                            ...(openUpwards
+                                                ? { bottom: window.innerHeight - rect.top + 4 }
+                                                : { top: rect.bottom + 4 }),
+                                            right: window.innerWidth - rect.right,
+                                        });
+                                        setMenuOpenId(song.id);
+                                    }
+                                }}
+                            >
+                                <FiMoreVertical />
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Portal overlay + dropdown — both on document.body to escape backdrop-filter containment */}
+            {menuOpenId && menuPos && createPortal(
+                <>
+                    <div className="portal-overlay" onClick={() => { setMenuOpenId(null); setMenuPos(null); }} />
+                    {(() => {
+                        const activeSong = songs.find(s => s.id === menuOpenId);
+                        if (!activeSong) return null;
+                        return (
+                            <div
+                                className="song-menu-dropdown"
+                                style={{ position: 'fixed', zIndex: 2001, ...menuPos }}
+                            >
+                                <button onClick={() => { toggleFavorite(activeSong); setMenuOpenId(null); setMenuPos(null); }}>
+                                    <FiHeart fill={activeSong.isLiked ? 'white' : 'none'} />
+                                    <span>{activeSong.isLiked ? 'Unlike' : 'Like'}</span>
+                                </button>
+                                <button onClick={() => { handleEditClick(activeSong); setMenuOpenId(null); setMenuPos(null); }}>
+                                    <FiEdit /> <span>Edit</span>
+                                </button>
+                                <button
+                                    className="delete-option"
+                                    onClick={() => { setDeleteModal({ show: true, songId: activeSong.id, songTitle: activeSong.title }); setMenuOpenId(null); setMenuPos(null); }}
+                                >
+                                    <FiTrash2 /> <span>Delete</span>
+                                </button>
+                            </div>
+                        );
+                    })()}
+                </>,
+                document.body
+            )}
+
+            {editModal.show && editModal.song && createPortal(
+                <>
+                    <div className="portal-overlay" onClick={() => setEditModal({ show: false, song: null })} />
+                    <div className="modal-backdrop" style={{ zIndex: 2001 }}>
+                    <div className="modal-content edit-modal" onClick={e => e.stopPropagation()}>
+                        <button className="modal-close-btn" onClick={() => setEditModal({ show: false, song: null })}>
+                            <FiX />
+                        </button>
+                        <h3>Edit Metadata</h3>
+                        <div className="edit-form">
+                            <label>Title</label>
+                            <input
+                                type="text"
+                                value={editModal.song.title || ''}
+                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, title: e.target.value } })}
+                            />
+                            <label>Artist</label>
+                            <input
+                                type="text"
+                                value={editModal.song.artist || ''}
+                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, artist: e.target.value } })}
+                            />
+                            <label>Album</label>
+                            <input
+                                type="text"
+                                value={editModal.song.album || ''}
+                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, album: e.target.value } })}
+                            />
+                            <label>Year</label>
+                            <input
+                                type="number"
+                                value={editModal.song.year || ''}
+                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, year: e.target.value } })}
+                                placeholder="e.g. 2024"
+                            />
+                            <label>Track Number</label>
+                            <input
+                                type="text"
+                                value={editModal.song.trackNumber || ''}
+                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, trackNumber: e.target.value } })}
+                                placeholder="e.g. 1"
+                            />
+                            <label>Release Date (Detailed)</label>
+                            <input
+                                type="text"
+                                value={editModal.song.releaseTime || ''}
+                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, releaseTime: e.target.value } })}
+                                placeholder="e.g. 2024-03-12"
+                            />
+                            <label>New Artwork URL (Optional)</label>
+                            <input
+                                type="text"
+                                value={editModal.song.artworkUrl || ''}
+                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, artworkUrl: e.target.value } })}
+                                placeholder="https://example.com/image.jpg"
+                            />
+                        </div>
+                        <div className="modal-actions">
+                            <button className="modal-btn cancel" onClick={() => setEditModal({ show: false, song: null })}>Cancel</button>
+                            <button className="modal-btn save" onClick={saveMetadata} style={{ background: '#1db954', color: 'white' }}>Save</button>
+                        </div>
+                    </div>
+                </div>
+                </>,
+                document.body
+            )}
+
+            {deleteModal.show && createPortal(
+                <div className="modal-backdrop" onClick={() => setDeleteModal({ ...deleteModal, show: false })}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <h3>Delete Song?</h3>
+                        <p>Are you sure you want to delete <b>{deleteModal.songTitle}</b>?</p>
+                        <p style={{ fontSize: '0.8rem', color: '#aaa', marginBottom: '2rem' }}>This action cannot be undone.</p>
+                        <div className="modal-actions">
+                            <button className="modal-btn cancel" onClick={() => setDeleteModal({ ...deleteModal, show: false })}>Cancel</button>
+                            <button className="modal-btn delete" onClick={confirmDelete}>Delete</button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+        </div>
+    );
+};
+
+export default AlbumDetail;
