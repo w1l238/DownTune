@@ -32,8 +32,10 @@ import { metadataService } from './services/MetadataService.js';
 const app = express();
 const port = 3001;
 
-app.use(cors());
-app.use(express.json()); // To parse JSON request bodies
+// Allow CORS from the configured origin (set ALLOWED_ORIGIN in .env for production)
+const corsOrigin = process.env.ALLOWED_ORIGIN || '*';
+app.use(cors({ origin: corsOrigin }));
+app.use(express.json());
 
 let spotifyAccessToken = '';
 let tokenExpiryTime = 0;
@@ -259,7 +261,6 @@ app.get('/api/proxy', async (req, res) => {
 });
 
 app.post('/download-song', async (req, res) => {
-  info(`[DEBUG] Incoming Download Request: ${JSON.stringify(req.body)}`);
   let { trackName, artistName, albumName, albumArtUrl, year, trackNumber, genre, isYoutube, isDeezer, url: videoUrl } = req.body;
   info(`Download Task: "${trackName}" by "${artistName}" from album "${albumName}"`);
 
@@ -364,7 +365,6 @@ app.post('/download-song', async (req, res) => {
       }
 
       info('Injecting metadata...');
-      info(`[DEBUG] Final Tags: title="${trackName}", artist="${artistName}", album="${albumName}", year="${year}", trackNumber="${trackNumber}", releaseTime="${releaseDate}", genre="${genre}"`);
 
       // Inject metadata
       const tags = {
@@ -630,6 +630,28 @@ app.post('/api/library/bulk/delete', async (req, res) => {
         error('Error in bulk delete:', err);
         res.status(500).json({ error: 'Failed to delete songs' });
     }
+});
+
+app.get('/api/library/storage', async (req, res) => {
+  const dirPath = getBaseDownloadPath();
+  const getDirSize = async (dir) => {
+    let total = 0;
+    try {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      for (const e of entries) {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) total += await getDirSize(full);
+        else { try { total += (await fs.stat(full)).size; } catch { /* skip */ } }
+      }
+    } catch { /* dir may not exist */ }
+    return total;
+  };
+  try {
+    const bytes = await getDirSize(dirPath);
+    res.json({ bytes });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get storage size.' });
+  }
 });
 
 app.delete('/api/files/:id', async (req, res) => {
