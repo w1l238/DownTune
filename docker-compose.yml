@@ -1,21 +1,12 @@
-networks:
-  cloudflare-net:
-    external: true
-
 services:
   server:
-    container_name: Spotify-Downloader-BACKEND
+    container_name: DownTune-Backend
     build: ./server
     restart: unless-stopped
-    networks:
-      cloudflare-net:
-        ipv4_address: 172.24.0.7
-    # Port 3001 is NOT exposed to the host — only reachable by the nginx container
-    # on the shared Docker network. Caddy proxies through nginx, not directly here.
     env_file:
       - ./server/.env
     volumes:
-      - /home/w1l/plexamp-music:/usr/src/downloads
+      - /your/path/here:/usr/src/downloads
     dns:
       - 8.8.8.8
       - 8.8.4.4
@@ -27,12 +18,9 @@ services:
       start_period: 15s
 
   client:
-    container_name: Spotify-Downloader-FRONTEND
+    container_name: DownTune-Frontend
     build: ./client
     restart: unless-stopped
-    networks:
-      cloudflare-net:
-        ipv4_address: 172.24.0.8
     ports:
       - "3000:80"
     depends_on:
