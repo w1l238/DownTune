@@ -1,0 +1,174 @@
+/* =====================================================================
+   Tunefall — Colors & Type
+   Foundational CSS variables for the music downloader web app.
+   v1.1 supports both Spotify and Deezer search APIs, so the brand
+   accent is now a service-neutral teal. Provider-specific tints are
+   exposed for badges only.
+   ===================================================================== */
+
+:root {
+    /* ----- Brand color (service-neutral primary) ----- */
+    --tf-accent:        #14b8a6;                      /* Tunefall teal */
+    --tf-accent-bright: #2dd4bf;
+    --tf-accent-soft:   rgba(20, 184, 166, 0.7);      /* primary action */
+    --tf-accent-hover:  rgba(45, 212, 191, 0.8);
+    --tf-accent-tint:   rgba(20, 184, 166, 0.3);      /* selected row */
+    --tf-ink:           #0d1f1c;                      /* deep teal-black */
+
+    /* ----- Provider tints (used ONLY for source badges, never as primary) ----- */
+    --tf-provider-spotify: #1db954;
+    --tf-provider-deezer:  #a238ff;
+
+    /* ----- Legacy aliases (do not use in new code; kept so v1 components don't break) ----- */
+    --sd-spotify-green:       var(--tf-accent);
+    --sd-spotify-green-bright:var(--tf-accent-bright);
+    --sd-spotify-green-soft:  var(--tf-accent-soft);
+    --sd-spotify-green-hover: var(--tf-accent-hover);
+    --sd-spotify-green-tint:  var(--tf-accent-tint);
+    --sd-spotify-black:       var(--tf-ink);
+
+    /* ----- Foreground (text) — built on rgba white over a colored bg ----- */
+    --sd-fg-1: rgba(255, 255, 255, 1);     /* primary white */
+    --sd-fg-2: rgba(255, 255, 255, 0.9);   /* near-primary */
+    --sd-fg-3: rgba(255, 255, 255, 0.8);   /* secondary text (artist, album) */
+    --sd-fg-4: rgba(255, 255, 255, 0.6);   /* tertiary / desc */
+    --sd-fg-5: rgba(255, 255, 255, 0.5);   /* inactive nav link */
+    --sd-fg-mute: rgba(255, 255, 255, 0.3);
+
+    /* ----- Glass surfaces (the core motif) ----- */
+    --sd-glass-05: rgba(255, 255, 255, 0.05); /* very subtle (settings sections) */
+    --sd-glass-10: rgba(255, 255, 255, 0.10); /* standard (navbar, search, cards) */
+    --sd-glass-15: rgba(255, 255, 255, 0.15); /* hover */
+    --sd-glass-20: rgba(255, 255, 255, 0.20); /* active focus */
+    --sd-glass-border:     rgba(255, 255, 255, 0.20);
+    --sd-glass-border-soft:rgba(255, 255, 255, 0.10);
+    --sd-glass-border-strong: rgba(255, 255, 255, 0.30);
+
+    --sd-blur-sm:  5px;
+    --sd-blur-md:  10px;
+    --sd-blur-lg:  15px;
+    --sd-blur-xl:  20px;
+
+    /* ----- Blur recipe — ALWAYS pair these with the -webkit- prefix ----- */
+    /* Usage:                                                              */
+    /*   backdrop-filter: blur(var(--sd-blur-md));                         */
+    /*   -webkit-backdrop-filter: blur(var(--sd-blur-md));                 */
+    /* Safari/iOS still ships the prefixed property; without it the blur  */
+    /* silently no-ops on WebKit and the glass collapses to flat alpha.   */
+
+    /* ----- Semantic / utility ----- */
+    --sd-success: rgba(29, 185, 84, 0.7);
+    --sd-success-strong: rgba(44, 200, 99, 0.8);
+    --sd-error:   rgba(255, 49, 49, 0.8);
+    --sd-error-soft: rgba(255, 80, 80, 0.6);
+    --sd-info:    rgba(52, 152, 219, 0.7);
+    --sd-favorite:rgba(255, 80, 80, 0.6);
+
+    /* ----- Modal / scrim ----- */
+    --sd-scrim:        rgba(0, 0, 0, 0.4);
+    --sd-scrim-strong: rgba(0, 0, 0, 0.7);
+    --sd-modal-bg:     rgba(42, 42, 42, 0.9);
+
+    /* ----- Background gradients (theme presets from Settings.jsx) ----- */
+    --sd-bg-ocean-default: linear-gradient(-45deg, #0350a2, #23a6d5, #23d5ab, #0350a2);
+    --sd-bg-spotify-green: linear-gradient(-45deg, #1db954, #1ed760, #1db954, #191414);
+    --sd-bg-deep-purple:   linear-gradient(-45deg, #2e0249, #570a57, #a91079, #2e0249);
+    --sd-bg-midnight-blue: linear-gradient(-45deg, #0f0c29, #302b63, #24243e, #0f0c29);
+    --sd-bg-ocean-wave:    linear-gradient(-45deg, #2193b0, #6dd5ed, #2193b0, #6dd5ed);
+    --sd-bg-forest-green:  linear-gradient(-45deg, #11998e, #38ef7d, #11998e, #38ef7d);
+    --sd-bg-cosmic-neon:   linear-gradient(-45deg, #833ab4, #fd1d1d, #fcb045, #833ab4);
+    --sd-bg-lava-flow:     linear-gradient(-45deg, #b22222, #ff0000, #800000, #b22222);
+    --sd-bg-sunset-vibes:  linear-gradient(-45deg, #ff512f, #dd2476, #ff512f, #dd2476);
+    --sd-bg-midnight-city: linear-gradient(-45deg, #232526, #414345, #232526, #414345);
+    --sd-bg-cyberpunk:     linear-gradient(-45deg, #ff00ff, #00ffff, #ff00ff, #00ffff);
+    --app-background: var(--sd-bg-ocean-default);
+
+    /* ----- Shadow system ----- */
+    --sd-shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.10);
+    --sd-shadow-md: 0 4px 30px rgba(0, 0, 0, 0.10);   /* the default glass shadow */
+    --sd-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.10);
+    --sd-shadow-deep:0 10px 40px rgba(0, 0, 0, 0.50);
+    --sd-shadow-album: 0 4px 15px rgba(0, 0, 0, 0.30);
+    --sd-shadow-album-lg: 0 8px 20px rgba(0, 0, 0, 0.40);
+    --sd-text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); /* over gradient bg */
+    --sd-text-shadow-strong: 0 4px 12px rgba(0, 0, 0, 0.5);
+
+    /* ----- Radii — capsule-first ----- */
+    --sd-radius-sm:  0.5rem;
+    --sd-radius-md:  1rem;
+    --sd-radius-lg:  1.5rem;
+    --sd-radius-xl:  2rem;     /* the dominant capsule radius */
+    --sd-radius-2xl: 3rem;
+    --sd-radius-pill: 9999px;
+    --sd-radius-circle: 50%;
+
+    /* ----- Spacing ----- */
+    --sd-sp-1: 0.25rem;
+    --sd-sp-2: 0.5rem;
+    --sd-sp-3: 0.75rem;
+    --sd-sp-4: 1rem;
+    --sd-sp-5: 1.5rem;
+    --sd-sp-6: 2rem;
+    --sd-sp-7: 3rem;
+
+    /* ----- Type ----- */
+    --sd-font-sans: system-ui, Avenir, Helvetica, Arial, sans-serif;
+    --sd-line-height: 1.5;
+    --sd-fw-regular: 400;
+    --sd-fw-medium:  500;
+    --sd-fw-semibold:600;
+    --sd-fw-bold:    700;
+    --sd-fw-black:   800;
+
+    --sd-fs-xs:   0.8rem;
+    --sd-fs-sm:   0.9rem;
+    --sd-fs-base: 1rem;
+    --sd-fs-md:   1.1rem;
+    --sd-fs-lg:   1.2rem;
+    --sd-fs-xl:   1.5rem;
+    --sd-fs-2xl:  2rem;
+    --sd-fs-3xl:  2.5rem;
+    --sd-fs-4xl:  3.2em;
+
+    /* ----- Motion ----- */
+    --sd-ease-glass: cubic-bezier(0.22, 1, 0.36, 1);
+    --sd-ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --sd-ease-snap:  cubic-bezier(0.4, 0, 0.2, 1);
+    --sd-dur-fast:   0.2s;
+    --sd-dur-base:   0.3s;
+    --sd-dur-slow:   0.5s;
+}
+
+/* ----- Semantic type tokens ----- */
+h1, .sd-h1 {
+    font-size: var(--sd-fs-4xl);
+    font-weight: var(--sd-fw-bold);
+    line-height: 1.1;
+    text-shadow: var(--sd-text-shadow);
+    margin: 0;
+}
+h2, .sd-h2 {
+    font-size: var(--sd-fs-2xl);
+    font-weight: var(--sd-fw-bold);
+    margin: 0.5rem 0;
+}
+h3, .sd-h3 {
+    font-size: var(--sd-fs-md);
+    font-weight: var(--sd-fw-semibold);
+    margin: 0.5rem 0 0.2rem;
+}
+.sd-track-name {
+    font-size: var(--sd-fs-lg);
+    font-weight: var(--sd-fw-bold);
+    text-shadow: var(--sd-text-shadow);
+}
+.sd-meta {
+    font-size: var(--sd-fs-sm);
+    color: var(--sd-fg-3);
+    text-shadow: var(--sd-text-shadow);
+}
+.sd-desc {
+    font-size: var(--sd-fs-xs);
+    color: var(--sd-fg-4);
+    line-height: 1.4;
+}
