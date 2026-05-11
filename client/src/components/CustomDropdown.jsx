@@ -1,69 +1,71 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { FiChevronDown, FiCheck } from 'react-icons/fi';
 import './css/CustomDropdown.css';
 
-const CustomDropdown = ({ options, value, onChange, placeholder = "Select an option", onToggle }) => {
+const CustomDropdown = ({ options, value, onChange, placeholder = 'Select an option' }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const dropdownRef = useRef(null);
-    const isInitialMount = useRef(true);
+    const [listPos, setListPos] = useState(null);
+    const triggerRef = useRef(null);
 
-    // Notify parent of toggle state only when isOpen changes
-    useEffect(() => {
-        if (isInitialMount.current) {
-            isInitialMount.current = false;
-            return;
-        }
-        if (onToggle) {
-            onToggle(isOpen);
-        }
-    }, [isOpen]);
+    const open = () => {
+        const rect = triggerRef.current.getBoundingClientRect();
+        setListPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+        setIsOpen(true);
+    };
 
-    // Close dropdown when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setIsOpen(false);
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, []);
+    const close = () => {
+        setIsOpen(false);
+        setListPos(null);
+    };
 
     const handleSelect = (optionValue) => {
         onChange(optionValue);
-        setIsOpen(false);
+        close();
     };
 
     const selectedOption = options.find(opt => opt.value === value);
 
     return (
-        <div className={`custom-dropdown-container ${isOpen ? 'is-open' : ''}`} ref={dropdownRef}>
-            <div 
-                className={`dropdown-header ${isOpen ? 'is-open' : ''}`} 
-                onClick={() => setIsOpen(!isOpen)}
+        <div className="custom-dropdown-container">
+            <div
+                ref={triggerRef}
+                className={`dropdown-header ${isOpen ? 'is-open' : ''}`}
+                onClick={isOpen ? close : open}
             >
                 <span>{selectedOption ? selectedOption.name : placeholder}</span>
                 <FiChevronDown className="dropdown-arrow" />
             </div>
-            
-            {isOpen && (
-                <div className="dropdown-list">
-                    {options.map((option) => (
-                        <div 
-                            key={option.value} 
-                            className={`dropdown-item ${value === option.value ? 'selected' : ''}`}
-                            onClick={() => handleSelect(option.value)}
-                        >
-                            {value === option.value && <FiCheck style={{ fontSize: '0.9rem' }} />}
-                            <span style={{ marginLeft: value === option.value ? '0' : '1.4rem' }}>
-                                {option.name}
-                            </span>
-                        </div>
-                    ))}
-                </div>
+
+            {isOpen && listPos && createPortal(
+                <>
+                    <div className="portal-overlay" onClick={close} />
+                    <div
+                        className="dropdown-list"
+                        style={{
+                            position: 'fixed',
+                            top: listPos.top,
+                            left: listPos.left,
+                            width: listPos.width,
+                            zIndex: 2001,
+                        }}
+                    >
+                        {options.map((option) => (
+                            <div
+                                key={option.value}
+                                className={`dropdown-item ${value === option.value ? 'selected' : ''}`}
+                                onClick={() => handleSelect(option.value)}
+                            >
+                                {value === option.value
+                                    ? <FiCheck style={{ fontSize: '0.9rem', flexShrink: 0 }} />
+                                    : <span style={{ width: '0.9rem', flexShrink: 0 }} />
+                                }
+                                <span>{option.name}</span>
+                            </div>
+                        ))}
+                    </div>
+                </>,
+                document.body
             )}
         </div>
     );
