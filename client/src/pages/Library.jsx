@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { FiGrid, FiList, FiTrash2, FiMusic, FiSearch, FiRefreshCw, FiArrowLeft, FiDisc, FiX, FiCheck, FiEdit, FiHeart, FiMoreVertical } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
+import { FiGrid, FiList, FiTrash2, FiMusic, FiSearch, FiRefreshCw, FiArrowLeft, FiDisc, FiX, FiCheck, FiEdit, FiHeart, FiMoreVertical, FiUsers } from 'react-icons/fi';
 import { LuHeartOff } from 'react-icons/lu';
 import toast, { Toaster } from 'react-hot-toast';
 import { useInView } from 'react-intersection-observer';
 import { API_BASE_URL } from '../config';
+import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import './css/Library.css';
+import './css/Albums.css';
 
 const LazyAlbumCard = ({ album, index, animationsDone, handleAlbumClick, lastUpdate }) => {
     const { ref, inView } = useInView({
@@ -63,23 +66,34 @@ const Library = () => {
     const [showBulkBar, setShowBulkBar] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
     const [menuOpenUpwards, setMenuOpenUpwards] = useState(false);
-    const [menuCoords, setMenuCoords] = useState({ top: 0, right: 0 });
     const [lastUpdate, setLastUpdate] = useState(Date.now());
     const animationTimer = useRef(null);
     const containerRef = useRef(null);
+    const headerRef = useRef(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         sessionStorage.setItem('library_search_query', searchQuery);
     }, [searchQuery]);
 
-    const activeSong = useMemo(() => 
-        songs.find(s => s.id === openMenuId), 
-    [songs, openMenuId]);
+    useEffect(() => {
+        const canvas = document.querySelector('.canvas');
+        if (!canvas) return;
+        let lastY = 0;
+        const onScroll = () => {
+            const y = canvas.scrollTop;
+            if (headerRef.current) {
+                headerRef.current.classList.toggle('header-hidden', y > lastY && y > 50);
+            }
+            lastY = y;
+        };
+        canvas.addEventListener('scroll', onScroll, { passive: true });
+        return () => canvas.removeEventListener('scroll', onScroll);
+    }, []);
 
 
     useEffect(() => {
-        document.title = 'Library - Spotify Downloader';
-        document.body.classList.add('library-page');
+        document.title = 'Library — DownTune';
         
         const shouldAutoScan = localStorage.getItem('auto_scan_library') === 'true';
         if (shouldAutoScan) {
@@ -91,7 +105,6 @@ const Library = () => {
         animationTimer.current = setTimeout(() => setAnimationsDone(true), 1500);
         return () => {
             if (animationTimer.current) clearTimeout(animationTimer.current);
-            document.body.classList.remove('library-page');
             document.body.classList.remove('bulk-bar-showing');
         };
     }, []);
@@ -114,6 +127,8 @@ const Library = () => {
             setLoading(false);
         }
     };
+
+    useAutoRefresh(fetchLibrary);
 
     const handleScan = async () => {
         setScanStatus('loading');
@@ -374,19 +389,10 @@ const Library = () => {
     }, [albums, songs, view, selectedAlbum, searchQuery, showFavoritesOnly]);
 
     const handleAlbumClick = (album) => {
-        if (animationTimer.current) clearTimeout(animationTimer.current);
-        if (containerRef.current) containerRef.current.scrollTop = 0;
-
-        setAnimationsDone(false);
-        setSelectedAlbum(album);
-        setView('songs');
-        // Removed: setSearchQuery(''); // Clear search when entering album
-        setSelectedIds([]);
-        setIsSelectionMode(false);
-        animationTimer.current = setTimeout(() => setAnimationsDone(true), 1500);
+        navigate(`/album/${encodeURIComponent(album.name)}`);
     };
 
-    const handleBack = () => {
+const handleBack = () => {
         if (animationTimer.current) clearTimeout(animationTimer.current);
         if (containerRef.current) containerRef.current.scrollTop = 0;
 
@@ -524,51 +530,66 @@ const Library = () => {
                 }
             }} />
             
-            <div className="library-header">
-                <div className="library-title">
-                    <div className={`title-content ${view === 'albums' ? 'active' : 'inactive'}`}>
-                        <h2>My Library</h2>
-                    </div>
-                    <div className={`title-content ${view !== 'albums' ? 'active' : 'inactive'}`}>
-                        <button className="back-btn" onClick={handleBack}>
-                            <FiArrowLeft /> <span>Back to Albums</span>
-                        </button>
-                    </div>
-                </div>
-
-                <div className="library-controls">
-                     <div className={`library-search ${view !== 'albums' ? 'hidden' : ''}`}>
-                        <FiSearch style={{ marginRight: '0.5rem', opacity: 0.7 }} />
-                        <input 
-                            type="text" 
-                            placeholder="Search albums..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
-
-                    <div className={`favorites-wrapper ${view === 'albums' ? '' : 'hidden'}`}>
-                        <button 
-                            className={`icon-btn favorite-btn ${showFavoritesOnly ? 'active' : ''}`} 
-                            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)} 
-                            title={showFavoritesOnly ? "Show All" : "Show Favorites Only"}
+            {view === 'albums' && (
+                <div className="page-header" ref={headerRef}>
+                    <h2>My Library</h2>
+                    <div className="page-header-controls">
+                        <div className="page-search">
+                            <FiSearch size={14} style={{ marginRight: '0.45rem', opacity: 0.6 }} />
+                            <input
+                                type="text"
+                                placeholder="Search albums…"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                        <button
+                            className={`page-icon-btn ${showFavoritesOnly ? 'active' : ''}`}
+                            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                            title={showFavoritesOnly ? 'Show All' : 'Show Favorites Only'}
                         >
-                            <FiHeart fill={showFavoritesOnly ? 'white' : 'none'} />
+                            <FiHeart size={15} fill={showFavoritesOnly ? 'white' : 'none'} />
+                        </button>
+                        <button
+                            className={`page-icon-btn sync-btn ${scanStatus}`}
+                            onClick={handleScan}
+                            title="Rescan Library"
+                            disabled={scanStatus === 'loading'}
+                        >
+                            {scanStatus === 'loading' ? <FiRefreshCw className="spin" size={15} /> :
+                             scanStatus === 'success' ? <FiCheck size={15} /> :
+                             scanStatus === 'error' ? <FiX size={15} /> :
+                             <FiRefreshCw size={15} />}
                         </button>
                     </div>
-
-                    <button 
-                        className={`icon-btn sync-btn ${scanStatus}`} 
-                        onClick={handleScan} 
-                        title="Rescan Library"
-                        disabled={scanStatus === 'loading'}
-                    >
-                         {scanStatus === 'loading' ? <FiRefreshCw className="spin" /> : 
-                          scanStatus === 'success' ? <FiCheck /> :
-                          scanStatus === 'error' ? <FiX /> :
-                          <FiRefreshCw />}
-                    </button>
                 </div>
+            )}
+
+            <div className="library-nav-chips">
+                <button className="library-nav-chip" onClick={() => navigate('/albums')}>
+                    <FiDisc size={15} /> Albums
+                </button>
+                <button className="library-nav-chip" onClick={() => navigate('/artists')}>
+                    <FiUsers size={15} /> Artists
+                </button>
+                <button
+                    className={`library-nav-chip${showFavoritesOnly ? ' active' : ''}`}
+                    onClick={() => setShowFavoritesOnly(f => !f)}
+                >
+                    <FiHeart size={15} fill={showFavoritesOnly ? 'white' : 'none'} />
+                    {showFavoritesOnly ? 'All' : 'Favorites'}
+                </button>
+                <button
+                    className={`library-nav-chip sync-btn ${scanStatus}`}
+                    onClick={handleScan}
+                    disabled={scanStatus === 'loading'}
+                >
+                    {scanStatus === 'loading' ? <FiRefreshCw className="spin" size={15} /> :
+                     scanStatus === 'success' ? <FiCheck size={15} /> :
+                     scanStatus === 'error' ? <FiX size={15} /> :
+                     <FiRefreshCw size={15} />}
+                    {scanStatus === 'loading' ? 'Syncing…' : scanStatus === 'success' ? 'Synced' : scanStatus === 'error' ? 'Error' : 'Sync'}
+                </button>
             </div>
 
             {loading && songs.length === 0 ? (
@@ -592,7 +613,10 @@ const Library = () => {
 
                     {view === 'songs' && activeAlbum && (
                         <div className="album-detail-view" key={activeAlbum.name}>
-                             <div 
+                            <button className="section-back" onClick={handleBack}>
+                                <FiArrowLeft size={15} /> Albums
+                            </button>
+                             <div
                                 className={`album-view-header ${!animationsDone ? 'fade-in' : ''}`}
                                 style={{ 
                                     '--album-art-url': `url(${API_BASE_URL}/api/files/${encodeURIComponent(activeAlbum.artId)}/art?t=${lastUpdate})` 
