@@ -1,253 +1,355 @@
-.results-container {
-    padding: 1rem 2rem;
-}
-
-.results-container h1 {
-    margin: 0 0 1rem 0;
-}
-
-.results-list {
+/* ===== Results page ===== */
+.results-wrap {
     display: flex;
     flex-direction: column;
     gap: 1rem;
 }
 
-.track-item {
+/* Search bar */
+.results-search {
     display: flex;
     align-items: center;
-    padding: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.2); /* Light border */
-    border-radius: 2rem; /* Rounded corners */
+    gap: 0.5rem;
+    background: var(--sd-glass-10);
+    backdrop-filter: blur(var(--sd-blur-md));
+    -webkit-backdrop-filter: blur(var(--sd-blur-md));
+    border: 1px solid var(--sd-glass-border);
+    border-radius: var(--sd-radius-xl);
+    padding: 0.4rem 0.5rem 0.4rem 1rem;
+    box-shadow: var(--sd-shadow-md);
+    transition: background var(--sd-dur-base) var(--sd-ease-glass);
+    flex-shrink: 0;
+}
+
+.results-search:focus-within {
+    background: var(--sd-glass-15);
+    border-color: var(--sd-glass-border-strong);
+}
+
+.results-search-icon {
+    color: var(--sd-fg-4);
+    flex-shrink: 0;
+}
+
+.results-search input {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    color: white;
+    padding: 0.65rem 0;
+    font-size: 1rem;
+    outline: 0;
+    font-family: inherit;
+    min-width: 0;
+}
+
+.results-search input::placeholder {
+    color: var(--sd-fg-4);
+}
+
+.results-search-clear {
+    background: var(--sd-glass-10) !important;
+    border: 1px solid var(--sd-glass-border-soft) !important;
+    color: var(--sd-fg-3);
+    border-radius: 50%;
+    width: 1.6rem;
+    height: 1.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    box-shadow: none !important;
+    transition: all var(--sd-dur-fast) var(--sd-ease-glass);
+    transform: none !important;
+}
+
+.results-search-clear:hover {
+    background: var(--sd-glass-20) !important;
+    color: white;
+}
+
+.results-search-btn {
+    flex-shrink: 0;
+    background: var(--tf-accent-soft);
+    border: 1px solid var(--sd-glass-border-strong) !important;
+    color: white;
+    border-radius: 99px;
+    padding: 0.5rem 1rem;
+    font-family: inherit;
+    font-weight: var(--sd-fw-semibold);
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all var(--sd-dur-fast) var(--sd-ease-glass);
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.results-search-btn:hover {
+    background: var(--tf-accent-hover);
+}
+
+/* Search history */
+.results-history {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.results-history-label {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.68rem;
+    font-weight: var(--sd-fw-bold);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--sd-fg-4);
+    padding: 0 0.25rem;
+}
+
+.results-history-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.results-history-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: var(--sd-glass-10);
+    border: 1px solid var(--sd-glass-border-soft);
+    border-radius: var(--sd-radius-xl);
+    padding: 0.3rem 0.35rem 0.3rem 0.75rem;
+    font-size: 0.83rem;
+    color: var(--sd-fg-2);
+    cursor: pointer;
+    transition: all var(--sd-dur-fast) var(--sd-ease-glass);
+}
+
+.results-history-chip:hover {
+    background: var(--sd-glass-15);
+    color: white;
+}
+
+.chip-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: var(--sd-glass-10) !important;
+    border: 0 !important;
+    color: var(--sd-fg-4);
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    box-shadow: none !important;
+    transition: all var(--sd-dur-fast) var(--sd-ease-glass);
+    transform: none !important;
+}
+
+.chip-remove:hover {
+    background: var(--sd-glass-20) !important;
+    color: white;
+}
+
+.results-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.track-row {
+    display: flex;
+    align-items: center;
     gap: 1rem;
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); /* Subtle shadow */
-    transition: all 0.2s ease-in-out;
-    position: relative; /* For pseudo-element positioning */
-    z-index: 1; /* Ensure content is above the pseudo-element */
+    padding: 0.8rem 1rem;
+    background: var(--sd-glass-10);
+    backdrop-filter: blur(var(--sd-blur-md));
+    -webkit-backdrop-filter: blur(var(--sd-blur-md));
+    border: 1px solid var(--sd-glass-border-soft);
+    border-radius: var(--sd-radius-lg);
+    transition: all var(--sd-dur-fast) var(--sd-ease-glass);
 }
 
-.track-item::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border-radius: 2rem;
-    z-index: -1;
-    transition: background-color 0.2s ease-in-out;
+.track-row:hover {
+    background: var(--sd-glass-15);
+    border-color: var(--sd-glass-border);
+    transform: translateY(-1px);
 }
 
-.track-item:hover::before {
-    background-color: rgba(255, 255, 255, 0.15); /* Slightly more opaque on hover */
+.track-art {
+    width: 54px;
+    height: 54px;
+    border-radius: 0.6rem;
+    flex-shrink: 0;
+    box-shadow: var(--sd-shadow-album);
+    overflow: hidden;
+    background: var(--sd-glass-10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--sd-fg-4);
 }
 
-.track-item:hover {
-    transform: scaleY(1.03) scaleX(1.005);
-}
-
-.result-album-art {
-    width: 80px;
-    height: 80px;
-    border-radius: 0.5rem;
+.track-art img {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
 
 .track-info {
     display: flex;
     flex-direction: column;
-    flex-grow: 1;
-    min-width: 0; /* Allow the container to shrink */
+    flex: 1;
+    min-width: 0;
+    gap: 0.1rem;
 }
 
-.track-name, .artist-name, .album-name {
+.track-name {
+    font-size: 0.98rem;
+    font-weight: var(--sd-fw-semibold);
+    text-shadow: var(--sd-text-shadow);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.track-name {
-    font-size: 1.2em;
-    font-weight: bold;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); /* Subtle shadow */
+.track-meta {
+    color: var(--sd-fg-3);
+    font-size: 0.83rem;
+    text-shadow: var(--sd-text-shadow);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.artist-name {
-    color: rgba(255, 255, 255, 0.8); /* Whiter shade */
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); /* Subtle shadow */
+.track-album {
+    font-size: 0.77rem;
+    color: var(--sd-fg-4);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.album-name {
-    font-size: 0.9em;
-    color: rgba(255, 255, 255, 0.8); /* Whiter shade */
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7); /* Subtle shadow */
-}
-
-.download-button {
-    padding: 0.5rem 1rem;
-    background-color: rgba(29, 185, 84, 0.7); /* Spotify green with transparency */
-    backdrop-filter: blur(5px); /* Apply a subtle blur to the button itself */
-    border: 1px solid rgba(255, 255, 255, 0.3); /* Light border */
-    border-radius: 1rem;
-    color: white;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+.track-dl-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: var(--sd-radius-xl);
+    font-size: 0.85rem;
+    font-weight: var(--sd-fw-semibold);
+    font-family: inherit;
     cursor: pointer;
-    margin-left: auto;
-    margin: 0;
-    flex-shrink: 0; /* Prevent the button from shrinking */
-    white-space: nowrap; /* Prevent text from wrapping */
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    border: 1px solid var(--sd-glass-border-strong);
+    transition: all var(--sd-dur-fast) var(--sd-ease-glass);
+    background: var(--tf-accent-soft);
+    color: white;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: var(--sd-shadow-sm);
 }
 
-.download-button:hover {
-    background-color: rgba(44, 200, 99, 0.8); /* Slightly more opaque on hover */
+.track-dl-btn:hover:not(:disabled) {
+    background: var(--tf-accent-hover);
+    transform: scale(1.04);
 }
 
-.download-button.downloaded {
-    background-color: rgba(255, 255, 255, 0.2); /* Grayed out/transparent */
-    color: rgba(255, 255, 255, 0.6);
-    cursor: default;
+.track-dl-btn.downloaded {
+    background: var(--sd-glass-20);
+    color: var(--sd-fg-4);
     border-color: transparent;
+    cursor: default;
 }
 
-.download-button.downloaded:hover {
-    background-color: rgba(255, 255, 255, 0.2);
+.track-dl-btn.downloaded:hover {
+    transform: none;
+    background: var(--sd-glass-20);
 }
 
-.pagination-controls {
+.track-dl-btn:disabled {
+    opacity: 0.7;
+    cursor: default;
+    transform: none;
+}
+
+.results-empty {
+    padding: 3rem 1rem;
+    text-align: center;
+    color: var(--sd-fg-3);
+}
+
+.results-pagination {
     display: flex;
+    gap: 0.8rem;
     justify-content: center;
-    gap: 1rem;
-    margin-top: 2rem;
-}
-
-.mobile-only-search {
-    display: none;
-}
-
-.download-button .btn-icon {
-    display: flex;
-    align-items: center;
+    padding-top: 0.5rem;
 }
 
 .spin {
     animation: spin 1s linear infinite;
 }
 
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
-/* Media query for smaller screens */
 @media (max-width: 768px) {
-    .results-container {
-        padding: 1rem 1rem 4.5rem 1rem; /* Added bottom padding for search bar */
-        display: block; /* Ensure it's visible (reverting previous hide if any) */
+    /* Scroll-hide animation — matches Library/Albums/Artists pattern */
+    .results-search {
+        position: sticky;
+        top: 0;
+        z-index: 101;
+        transition: transform 0.3s ease, opacity 0.3s ease;
+        margin-bottom: 0.75rem;
     }
-    
-    .results-container h1 {
-        /* margin: 1rem 0; */
+
+    .results-search.header-hidden {
+        transform: translateY(calc(-100% - 0.75rem));
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .results-search input {
+        padding: 0.55rem 0;
+        font-size: 0.95rem;
+    }
+
+    /* Hide the Search button — pressing Enter submits */
+    .results-search-btn {
         display: none;
     }
 
-    /* Mobile Search Bar Styling (Mirrors Home.css) */
-    .mobile-only-search {
-        display: flex;
-        align-items: center;
-        padding: 0.2rem 0.7rem;
-        
-        position: fixed;
-        left: 1rem;
-        right: 1rem;
-        bottom: 4.5rem; /* Position inside the top area of the tall navbar */
-        transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-        z-index: 850;
-        
-        /* Transparent when docked - Navbar provides background */
-        background-color: transparent;
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
-        box-shadow: none;
-        
-        border: none;
-        border-radius: 0;
+    /* Track rows — good touch targets */
+    .track-row {
+        gap: 0.75rem;
+        padding: 0.8rem 0.85rem;
+        min-height: 56px;
     }
 
-    .mobile-only-search input {
-        background: transparent;
-        border: none;
-        color: white;
-        width: 100%;
-        padding: 0.5rem;
-        font-size: 1.2em;
+    .track-art {
+        width: 46px;
+        height: 46px;
     }
 
-    .mobile-only-search input:focus {
-        outline: none;
-    }
-
-    .mobile-only-search .search-icon-btn {
-        background: none;
-        border: none;
-        color: white;
-        font-size: 1.5rem;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        margin: 0;
-    }
-
-    /* Move up and detach when typing */
-    body.search-focused .mobile-only-search {
-        bottom: 55%; 
-        border-radius: 2rem; 
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        
-        /* Restore background */
-        background-color: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-    }
-
-    .track-item {
-        padding: 0.75rem;
-        gap: 0.8rem;
-        border-radius: 2rem;
-    }
-
-    .result-album-art {
-        width: 60px;
-        height: 60px;
-    }
-
-    .track-name {
-        font-size: 1.1em;
-    }
-
-    .download-button {
-        width: 2.8rem;
-        height: 2.8rem;
-        padding: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        font-size: 1.2rem;
-    }
-
-    .download-button .btn-text {
+    .track-album {
         display: none;
     }
 
-    .download-button .btn-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
+    .track-dl-btn {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8rem;
+    }
+
+    /* History chips — wrap more naturally */
+    .results-history-chips {
+        gap: 0.35rem;
+    }
+
+    .results-history-chip {
+        font-size: 0.8rem;
+        padding: 0.35rem 0.35rem 0.35rem 0.7rem;
     }
 }
