@@ -1,22 +1,18 @@
+@import './colors_and_type.css';
+
 * {
   box-sizing: border-box;
 }
 
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-
+  font-family: var(--sd-font-sans);
+  line-height: var(--sd-line-height);
+  font-weight: var(--sd-fw-regular);
+  color: var(--sd-fg-1);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  /* Theme Variable */
-  --app-background: linear-gradient(-45deg, #0350a2, #23a6d5, #23d5ab, #0350a2);
 }
 
 html {
@@ -29,71 +25,138 @@ body {
   background: var(--app-background);
   background-size: 400% 400%;
   animation: gradient 30s ease infinite;
+  overflow: hidden;
 }
 
 @keyframes gradient {
-  0% {
-  background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; }
+  50%       { opacity: 1; }
+}
 
 a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+  font-weight: var(--sd-fw-medium);
+  color: inherit;
+  text-decoration: none;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); /* More subtle shadow */
-}
+h1 { font-size: var(--sd-fs-4xl); font-weight: var(--sd-fw-bold); line-height: 1.1; text-shadow: var(--sd-text-shadow); margin: 0; }
+h2 { font-size: var(--sd-fs-2xl); font-weight: var(--sd-fw-bold); margin: 0.5rem 0; }
+h3 { font-size: var(--sd-fs-md); font-weight: var(--sd-fw-semibold); margin: 0.5rem 0 0.2rem; }
 
 button {
-  border-radius: 2rem; /* Rounded corners */
-  border: 1px solid rgba(255, 255, 255, 0.2); /* Light border */
+  border-radius: var(--sd-radius-xl);
+  border: 1px solid var(--sd-glass-border);
   padding: 0.6em 1.2em;
   font-size: 1em;
-  font-weight: 500;
+  font-weight: var(--sd-fw-medium);
   font-family: inherit;
-  background-color: rgba(255, 255, 255, 0.1); /* Semi-transparent white */
-  backdrop-filter: blur(10px); /* Glass blur effect */
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); /* Subtle shadow */
-  color: white; /* Ensure text is visible */
+  background-color: var(--sd-glass-10);
+  backdrop-filter: blur(var(--sd-blur-md));
+  -webkit-backdrop-filter: blur(var(--sd-blur-md));
+  box-shadow: var(--sd-shadow-md);
+  color: white;
   cursor: pointer;
-  transition: all 0.25s;
+  transition: all var(--sd-dur-fast) var(--sd-ease-glass);
 }
+
 button:hover {
-  background-color: rgba(255, 255, 255, 0.15); /* Slightly more opaque on hover */
+  background-color: var(--sd-glass-15);
   transform: scale(1.05);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
-button:focus,
+
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-    button {
-      background-color: #f9f9f9;
-    }
-  }
-  
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Primary teal action button */
+.btn-primary {
+  background: var(--tf-accent-soft);
+  border-color: var(--sd-glass-border-strong);
+  font-weight: var(--sd-fw-semibold);
+}
+.btn-primary:hover {
+  background: var(--tf-accent-hover);
+}
+
+/* Danger/delete button */
+.btn-danger {
+  background: var(--sd-error);
+  border-color: var(--sd-glass-border-strong);
+}
+.btn-danger:hover {
+  background: rgba(255, 49, 49, 1);
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+.fade-in {
+  opacity: 0;
+  animation: fadeInUp 0.5s ease forwards;
+}
+
+/* Dim overlay for background images — sits between body bg and shell content */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, var(--bg-dim, 0));
+  pointer-events: none;
+  z-index: 0;
+  transition: background 0.25s ease;
+}
+
+/* Modal wrapper — positions content center-screen, no background dim */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Full-viewport overlay rendered via React portal (escapes backdrop-filter containment) */
+.portal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 1999;
+  animation: fadeInOverlay 0.2s ease forwards;
+}
+
+@keyframes fadeInOverlay {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--sd-glass-15); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--sd-glass-20); }
