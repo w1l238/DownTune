@@ -1,35 +1,64 @@
-body.library-page {
-    overflow: hidden;
+/* Mobile nav chips — Albums / Artists shortcuts */
+.library-nav-chips {
+    display: none;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
 }
 
-.library-container {
-    padding: 2rem;
+.library-nav-chip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0.65rem 1rem;
+    background: var(--sd-glass-10);
+    border: 1px solid var(--sd-glass-border-soft);
+    border-radius: var(--sd-radius-xl);
     color: white;
-    height: calc(100vh - 128px);
-    overflow-y: auto;
-    position: relative; /* Ensure relative positioning for contained fixed elements */
+    font-size: 0.9rem;
+    font-weight: var(--sd-fw-medium);
+    cursor: pointer;
+    backdrop-filter: blur(var(--sd-blur-md));
+    -webkit-backdrop-filter: blur(var(--sd-blur-md));
+    transition: all var(--sd-dur-fast) var(--sd-ease-glass);
+}
+
+.library-nav-chip:hover {
+    background: var(--sd-glass-15);
+    transform: scale(1.02);
+}
+
+.library-nav-chip.active {
+    background: rgba(255, 80, 80, 0.35);
+    border-color: rgba(255, 80, 80, 0.5);
+}
+
+.library-nav-chip.sync-btn.success {
+    background: rgba(20, 184, 166, 0.25);
+    border-color: rgba(20, 184, 166, 0.45);
+}
+
+.library-nav-chip.sync-btn.error {
+    background: rgba(255, 49, 49, 0.25);
+    border-color: rgba(255, 49, 49, 0.4);
+}
+
+@media (max-width: 768px) {
+    .library-nav-chips {
+        display: grid;
+    }
+}
+
+/* Library page — uses canvas scroll from App shell */
+.library-container {
+    padding: 0;
+    color: white;
+    position: relative;
 }
 
 
 
-.library-container.has-active-menu::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(4px);
-    z-index: 2000; /* Below the active song-row (2002) and menu (2001) */
-    pointer-events: auto; /* Block clicks on underlying elements */
-    animation: fadeInOverlay 0.3s ease forwards;
-}
-
-@keyframes fadeInOverlay {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
 
 /* Custom Scrollbar */
 .library-container::-webkit-scrollbar {
@@ -51,16 +80,16 @@ body.library-page {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 2rem;
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--sd-glass-10);
     padding: 1rem 1.5rem;
-    border-radius: 2rem;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    border-radius: var(--sd-radius-xl);
+    backdrop-filter: blur(var(--sd-blur-md));
+    -webkit-backdrop-filter: blur(var(--sd-blur-md));
+    border: 1px solid var(--sd-glass-border);
+    box-shadow: var(--sd-shadow-md);
     position: sticky;
     top: 0;
-    z-index: 101; /* Above the global navbar (100) */
-    margin-top: -1rem; /* Adjust for container padding */
+    z-index: 101;
 }
 
 .library-title {
@@ -125,7 +154,7 @@ body.library-page {
 .library-search {
     background-color: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 2rem;
+    border-radius: var(--sd-radius-lg);
     padding: 0.6rem 1.2rem;
     color: white;
     display: flex;
@@ -167,7 +196,7 @@ body.library-page {
     border: 1px solid rgba(255, 255, 255, 0.2);
     color: white;
     padding: 0.6rem 1.2rem;
-    border-radius: 2rem;
+    border-radius: var(--sd-radius-lg);
     cursor: pointer;
     backdrop-filter: blur(5px);
     box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
@@ -253,8 +282,8 @@ body.library-page {
 }
 
 .edit-mode-btn.active {
-    background-color: rgba(29, 185, 84, 0.7);
-    border-color: #1db954;
+    background-color: var(--tf-accent-soft);
+    border-color: var(--tf-accent);
 }
 
 .edit-mode-btn:hover svg {
@@ -270,24 +299,25 @@ body.library-page {
 }
 
 .album-card {
-    background-color: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 1.5rem;
-    padding: 0.8rem;
+    background-color: var(--sd-glass-05);
+    border: 1px solid var(--sd-glass-border-soft);
+    border-radius: var(--sd-radius-lg);
+    padding: 0.85rem;
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
-    transition: transform 0.3s, background-color 0.3s, box-shadow 0.3s;
+    transition: all var(--sd-dur-base) var(--sd-ease-glass);
     cursor: pointer;
-    backdrop-filter: blur(5px);
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(var(--sd-blur-sm));
+    -webkit-backdrop-filter: blur(var(--sd-blur-sm));
+    box-shadow: var(--sd-shadow-md);
 }
 
 .album-card:hover {
-    transform: translateY(-8px);
-    background-color: rgba(255, 255, 255, 0.15);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+    transform: translateY(-3px);
+    background-color: var(--sd-glass-10);
+    box-shadow: var(--sd-shadow-album-lg);
 }
 
 .album-art {
@@ -296,7 +326,7 @@ body.library-page {
     border-radius: 1rem;
     overflow: hidden;
     margin-bottom: 0.8rem;
-    background: linear-gradient(135deg, #1db954, #191414);
+    background: linear-gradient(135deg, var(--tf-accent), var(--tf-ink));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -341,7 +371,7 @@ body.library-page {
     margin-bottom: 2rem;
     background-color: rgba(255, 255, 255, 0.05);
     padding: 2rem;
-    border-radius: 2rem;
+    border-radius: var(--sd-radius-xl);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
@@ -393,31 +423,53 @@ body.library-page {
 .song-list {
     display: flex;
     flex-direction: column;
-    gap: 0.8rem;
+    gap: 0.4rem;
 }
 
 .song-list-header {
     display: grid;
     grid-template-columns: 50px 1fr 100px 60px;
-    padding: 0.5rem 1.5rem;
-    font-weight: bold;
-    color: rgba(255, 255, 255, 0.9);
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    padding: 0.3rem 0.9rem;
+    font-size: 0.7rem;
+    font-weight: var(--sd-fw-bold);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--sd-fg-4);
     align-items: center;
 }
 
 .song-row {
     display: grid;
-    grid-template-columns: 50px 1fr 100px 60px; /* #, Title, Duration, Action */
+    grid-template-columns: 50px 1fr 100px 60px;
     align-items: center;
-    padding: 1rem 1.5rem;
-    border-radius: 2rem;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s ease-in-out;
+    padding: 0.65rem 0.9rem;
+    border-radius: var(--sd-radius-lg);
+    border: 1px solid var(--sd-glass-border-soft);
+    transition: all var(--sd-dur-fast) var(--sd-ease-glass);
     position: relative;
     z-index: 1;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.song-row-num {
+    color: var(--sd-fg-4);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    text-align: left;
+    padding-left: 0.25rem;
+}
+
+.song-row-title {
+    font-weight: var(--sd-fw-semibold);
+    font-size: 0.93rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.song-row-duration {
+    font-size: 0.82rem;
+    color: var(--sd-fg-4);
+    font-variant-numeric: tabular-nums;
 }
 
 .more-btn {
@@ -533,24 +585,26 @@ body.library-page {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border-radius: 2rem;
+    background-color: var(--sd-glass-05);
+    backdrop-filter: blur(var(--sd-blur-md));
+    -webkit-backdrop-filter: blur(var(--sd-blur-md));
+    border-radius: var(--sd-radius-lg);
     z-index: -1;
-    transition: background-color 0.2s ease-in-out;
+    transition: background-color var(--sd-dur-fast) var(--sd-ease-glass);
 }
 
 .song-row:hover::before {
-    background-color: rgba(255, 255, 255, 0.15);
+    background-color: var(--sd-glass-10);
 }
 
 .song-row:hover {
-    transform: scaleY(1.03) scaleX(1.005);
+    border-color: var(--sd-glass-border);
+    transform: translateY(-1px);
 }
 
 .song-row.selected {
-    background-color: rgba(29, 185, 84, 0.3);
-    border-color: rgba(29, 185, 84, 0.5);
+    background-color: var(--tf-accent-tint);
+    border-color: var(--tf-accent);
 }
 
 .selection-mode .song-row {
@@ -570,6 +624,7 @@ body.library-page {
     background-color: transparent;
     border-color: rgba(255, 255, 255, 0.4);
     color: white;
+    transform: none;
 }
 
 .selection-mode .song-row:hover::before {
@@ -578,7 +633,7 @@ body.library-page {
 
 .selection-mode .song-row.selected {
     background-color: transparent !important;
-    border-color: #1db954;
+    border-color: var(--tf-accent);
     color: white;
     transform: scale(1.01);
     box-shadow: 0 4px 20px rgba(29, 185, 84, 0.3);
@@ -617,8 +672,8 @@ body.library-page {
 }
 
 .library-checkbox:checked {
-    background-color: #1db954;
-    border-color: #1db954;
+    background-color: var(--tf-accent);
+    border-color: var(--tf-accent);
     box-shadow: 0 0 10px rgba(29, 185, 84, 0.5);
 }
 
@@ -695,7 +750,7 @@ body.library-page {
 }
 
 .bulk-info .count {
-    background: #1db954;
+    background: var(--tf-accent);
     color: white;
     width: 28px;
     height: 28px;
@@ -717,7 +772,7 @@ body.library-page {
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: white;
     padding: 0.6rem 1.2rem;
-    border-radius: 2rem;
+    border-radius: var(--sd-radius-lg);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -884,6 +939,33 @@ body.library-page {
     background: rgba(255, 255, 255, 0.1);
 }
 
+.section-back.album-back { display: none; }
+
+.section-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--sd-glass-10);
+    border: 1px solid var(--sd-glass-border);
+    border-radius: var(--sd-radius-xl);
+    padding: 0.45rem 1rem;
+    cursor: pointer;
+    color: white;
+    font-family: inherit;
+    font-size: 0.88rem;
+    width: fit-content;
+    margin-bottom: 1rem;
+    transition: all var(--sd-dur-fast) var(--sd-ease-glass);
+    backdrop-filter: blur(var(--sd-blur-md));
+    -webkit-backdrop-filter: blur(var(--sd-blur-md));
+    box-shadow: var(--sd-shadow-sm);
+    transform: none !important;
+}
+
+.section-back:hover {
+    background: var(--sd-glass-15);
+}
+
 .back-btn {
     display: flex;
     align-items: center;
@@ -895,7 +977,7 @@ body.library-page {
     cursor: pointer;
     margin: 0.75rem 0; /* Match h2 margin for consistency */
     padding: 0.5rem 1rem;
-    border-radius: 2rem;
+    border-radius: var(--sd-radius-lg);
     transition: all 0.3s ease;
 }
 
@@ -967,7 +1049,7 @@ body.library-page {
 .modal-btn {
     padding: 0.8rem 2rem;
     border: none;
-    border-radius: 2rem;
+    border-radius: var(--sd-radius-lg);
     cursor: pointer;
     font-weight: bold;
     font-size: 1rem;
@@ -988,114 +1070,50 @@ body.library-page {
     color: white;
 }
 
-/* Mobile Media Queries */
+/* ===== Mobile ===== */
 @media (max-width: 768px) {
+    /* Library page — canvas scroll handles overflow now, not library-container */
     .library-container {
-        padding: 1rem;
-        padding-bottom: 4rem; /* Standard bottom padding */
-        height: 100vh; /* Fill full vertical space */
-        overflow-y: auto;
-        overflow-x: hidden;
+        padding: 0;
     }
 
-    /* Extra space when bulk bar/expanded navbar is visible */
-    body.bulk-bar-showing .library-container {
-        padding-bottom: 8rem; 
-    }
-
-    /* Library Header Adjustments */
-    .library-header {
-        padding: 0.8rem;
-        margin-bottom: 0; /* Removed margin to allow album art to touch top */
-        gap: 0.5rem;
-        position: sticky;
-        top: 0;
-        z-index: 800;
-    }
-
-    .library-title {
-        display: flex;
-        align-items: center;
-        gap: 0;
-    }
-
-    .library-title .title-content {
-        grid-area: auto;
-    }
-
-    .library-title .title-content:has(h2) {
+    .section-back {
         display: none;
     }
 
-    .library-title .title-content:has(.back-btn) {
+    /* Album back button — circle icon floating over the hero, mobile only */
+    .section-back.album-back {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 2.5rem;
-        opacity: 1;
-        margin-right: 0.2rem;
-        transition: width 0.4s cubic-bezier(0.2, 0, 0, 1), 
-                    opacity 0.3s ease, 
-                    margin-right 0.4s cubic-bezier(0.2, 0, 0, 1);
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        z-index: 10;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        padding: 0;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        color: white;
+        transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
     }
 
-    .library-title .title-content:has(.back-btn).inactive {
-        width: 0;
-        opacity: 0;
-        margin-right: 0;
-        pointer-events: none;
+    .section-back.album-back:hover {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.3);
+        transform: scale(1.1);
     }
 
-    .library-controls {
-        flex-grow: 1;
-        display: flex;
-        align-items: center;
-        gap: 0;
-        width: auto;
-    }
 
-    .library-search {
-        flex-grow: 1;
-        padding: 0.4rem 1rem; /* Slightly tighter padding to keep container size same */
-    }
-
-    .library-search input {
-        width: 100%;
-        font-size: 1.2rem; /* Increased from 1rem */
-    }
-
-    .library-search svg {
-        font-size: 1.3rem; /* Increased icon size */
-    }
-
-    /* Back Button Adjustments */
-    .back-btn {
-        padding: 0.5rem;
-        font-size: 1.5rem; 
-        margin-bottom: 0;
-        flex-shrink: 0;
-        transition: transform 0.2s ease, opacity 0.3s ease;
-    }
-
-    .library-title .title-content.inactive .back-btn {
-        transform: scale(0);
-        opacity: 0;
-    }
-
-    .back-btn span {
-        display: none; /* Hide 'Back to Albums' text */
-    }
-
-    .song-list {
-        position: relative;
-    }
-
-    /* 2 Column Grid for Albums */
+    /* Library album grid */
     .album-grid {
         grid-template-columns: repeat(2, 1fr);
-        gap: 0.8rem; /* Slightly smaller gap to save space */
-        align-items: stretch;
-        margin-top: 2.5rem; /* Restore gap for grid view */
+        gap: 0.8rem;
     }
 
     .album-card-wrapper {
@@ -1106,241 +1124,197 @@ body.library-page {
     .album-card {
         width: 100%;
         height: 100%;
-        padding: 0.5rem; /* Reduced padding for mobile */
-        min-width: 0; /* Critical: allows card to shrink below content size (text) */
-        overflow: hidden; /* Ensures no content spills out */
-    }
-
-    /* Full-bleed Redesigned Album Header for Mobile */
-    .album-view-header {
-        position: sticky; 
-        top: -5vh; /* Scroll up to hide most of the art */
-        isolation: isolate; 
-        
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-end;
-        align-items: flex-start;
-        text-align: left;
-        gap: 0;
-        padding: 1.5rem;
-        padding-top: 6rem; /* Space for overlap */
-        height: 50vh; 
-        margin: -6rem -1rem 0 -1rem; /* Pull up behind the library header */
-        border-radius: 0; 
+        padding: 0.55rem;
+        min-width: 0;
         overflow: hidden;
-        border: none;
-        background: transparent; /* Ensure parent is transparent for mask effect */
-        box-shadow: none;
-        overflow: visible;
-        
-        transition: height 0.3s ease, padding 0.3s ease;
     }
 
-    .album-view-header::before {
-        content: '';
+    /* ── Background mode (default / full-bleed hero) ── */
+    .album-view-header.art-background {
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: flex-end;
+        gap: 0;
+        padding: 0;
+        margin: -1.1rem -1rem 1rem;
+        border-radius: 0;
+        background: none;
+        border: none;
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        position: relative;
+        min-height: 520px;
+        overflow: visible;
+    }
+
+    .album-view-header.art-background .album-view-art {
         position: absolute;
         inset: 0;
-        z-index: -1;
-        
-        /* Background Art with darkening gradient for text contrast */
-        background-image: 
-            linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.5) 100%),
-            var(--album-art-url);
-        background-size: cover;
-        background-position: center;
-
-        /* Mask to blend art into body background - smoother fade */
-        -webkit-mask-image: linear-gradient(to bottom, black 30%, transparent 95%);
-        mask-image: linear-gradient(to bottom, black 30%, transparent 95%);
-    }
-
-    .album-detail-view {
-        margin-bottom: 2rem;
-    }
-
-    .album-view-art {
-        display: none; 
-    }
-
-    .album-view-details {
         width: 100%;
-        z-index: 2; 
+        height: 100%;
+        border-radius: 0;
+        box-shadow: none;
+        -webkit-mask-image: linear-gradient(to bottom, black 30%, transparent 88%);
+        mask-image: linear-gradient(to bottom, black 30%, transparent 88%);
     }
 
-    .album-view-details h1 {
-        font-size: 2.5rem;
-        font-weight: 800;
-        margin: 0;
-        line-height: 1.1;
-        text-shadow: 0 4px 12px rgba(0,0,0,0.5);
-        display: block; 
+    .album-view-header.art-background .album-view-art img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center top;
     }
-    
-    .album-view-details h2 {
+
+    .album-view-header.art-background .album-view-details {
+        position: relative;
+        z-index: 1;
+        padding: 1.5rem 1rem 1rem;
+        width: 100%;
+    }
+
+    .album-view-header.art-background .album-view-details h1 {
+        font-size: 2rem;
+        margin: 0 0 0.2rem;
+        text-shadow: 0 1px 10px rgba(0,0,0,0.7);
+    }
+
+    .album-view-header.art-background .album-view-details h2 {
         font-size: 1.2rem;
-        color: rgba(255, 255, 255, 0.9);
-        margin: 0.3rem 0 0.8rem 0;
-        text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+        margin: 0 0 0.5rem;
+        opacity: 0.9;
+        text-shadow: 0 1px 8px rgba(0,0,0,0.6);
     }
-    
-    .album-actions {
-        justify-content: flex-start; 
-        gap: 1rem;
+
+    .album-view-header.art-background .album-actions {
+        gap: 0.75rem;
         margin-top: 0;
     }
 
-    .album-actions .icon-btn {
-        font-size: 1.4rem;
-        padding: 0.6rem;
-        background-color: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    }
-
-    .album-actions .icon-btn.active.favorite-btn {
-        background-color: rgba(255, 80, 80, 0.6);
-        border: 1px solid rgba(255, 255, 255, 0.4);
-    }
-
-    .album-actions .icon-btn.active.edit-mode-btn {
-        background-color: rgba(29, 185, 84, 0.7);
-        border: 1px solid #1db954;
-    }
-
-    /* Floating Like Button position */
-    .album-actions {
-        display: flex;
+    /* ── Card mode (centered art, YouTube Music style) ── */
+    .album-view-header.art-card {
+        position: relative;
+        flex-direction: column;
         align-items: center;
-        width: 100%;
+        justify-content: flex-start;
+        gap: 1.25rem;
+        padding: 1.75rem 1.25rem 1.25rem;
+        margin: 0 0 1rem;
+        min-height: auto;
+        overflow: visible;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: var(--sd-radius-xl);
+        backdrop-filter: blur(var(--sd-blur-md));
+        -webkit-backdrop-filter: blur(var(--sd-blur-md));
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
     }
 
-    /* Push "X songs" text to grow, or keep buttons fixed? */
-    /* Let's keep simpler row for now */
+    .album-view-header.art-card .album-view-art {
+        position: relative;
+        inset: auto;
+        width: 210px;
+        height: 210px;
+        border-radius: 1.25rem;
+        flex-shrink: 0;
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+        -webkit-mask-image: none;
+        mask-image: none;
+    }
 
-    /* Adjust Song List for Mobile if needed */
+    .album-view-header.art-card .album-view-art img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .album-view-header.art-card .album-view-details {
+        position: relative;
+        z-index: 1;
+        padding: 0;
+        width: 100%;
+        text-align: center;
+    }
+
+    .album-view-header.art-card .album-view-details h1 {
+        font-size: 1.6rem;
+        margin: 0 0 0.3rem;
+    }
+
+    .album-view-header.art-card .album-view-details h2 {
+        font-size: 1.05rem;
+        margin: 0 0 0.5rem;
+        opacity: 0.85;
+    }
+
+    .album-view-header.art-card .album-actions {
+        justify-content: center;
+        gap: 0.75rem;
+        margin-top: 0;
+    }
+
+    /* back button stays visible on top of card mode too */
+    .album-view-header.art-card .album-back {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+    }
+
+    /* Song list on mobile */
     .song-list-header {
-        display: none; /* Hide header on mobile for cleaner look or adjust columns */
+        display: none;
     }
 
     .song-row {
-        grid-template-columns: 1fr 60px 50px; /* Title, Duration, Actions */
-        padding: 0.75rem 1rem;
-        gap: 0.8rem;
-        border-radius: 3rem; /* Rounder rows */
+        grid-template-columns: 1fr 60px 46px;
+        padding: 0.75rem 0.85rem;
+        gap: 0.7rem;
+        min-height: 52px;
     }
-    
-    .song-row::before {
-        border-radius: 3rem;
+
+    .song-row > div:first-child {
+        display: none;
     }
-    
-    /* Ensure Title doesn't overflow */
+
     .song-row > div:nth-child(2) {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        font-size: 1.1rem;
-    }
-
-    .song-row > div:nth-child(3) {
         font-size: 1rem;
     }
-    
+
     .more-btn {
-        font-size: 1.5rem;
+        width: 38px;
+        height: 38px;
     }
 
+    /* Bulk action bar sits above the fixed bottom nav */
     .bulk-action-bar-container {
-        bottom: 4.5rem; /* Dock inside the expanded navbar area */
-        left: 1rem;
-        right: 1rem;
-        padding: 0;
+        bottom: calc(68px + env(safe-area-inset-bottom, 0px) + 0.5rem);
+        left: 0.75rem;
+        right: 0.75rem;
     }
 
     .bulk-action-bar {
-        padding: 0.2rem 0.7rem; /* Match search bar padding */
-        flex-direction: row;
-        border-radius: 0; /* Remove rounded corners to merge */
-        border-top: none;
-        border-left: none;
-        border-right: none;
-        box-shadow: none;
-        width: 100%;
-        justify-content: center;
-        gap: 0;
-        animation: emergeMobile 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-        
-        /* Transparent - Navbar provides background */
-        background: transparent;
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
-    }
-
-    .bulk-action-bar.is-closing {
-        animation: leaveMobile 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-    }
-
-    @keyframes emergeMobile {
-        from {
-            opacity: 0;
-            transform: translateY(30px); /* More subtle movement */
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    @keyframes leaveMobile {
-        from {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        to {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-    }
-
-    .bulk-info {
-        border-right: none;
-        padding-right: 0;
-        border-bottom: none;
-        width: auto;
-        justify-content: center;
-        padding-bottom: 0;
-        margin-right: 1rem;
-        transition: all 0.3s ease;
-    }
-
-    .show-mobile {
-        display: inline;
-    }
-
-    .bulk-actions-buttons {
-        flex-wrap: nowrap;
-        justify-content: space-evenly;
-        gap: 0;
-        flex-grow: 1;
-        transition: all 0.3s ease;
+        padding: 0.5rem 0.75rem;
+        border-radius: var(--sd-radius-lg);
+        gap: 0.5rem;
     }
 
     .bulk-btn {
         padding: 0;
-        width: 2.8rem; /* Match album action buttons size */
+        width: 2.8rem;
         height: 2.8rem;
-        font-size: 1.2rem; /* Reset to standard icon size */
         justify-content: center;
-        border-radius: 50%; /* Make them circular like the album actions */
+        border-radius: 50%;
     }
 
     .bulk-info .count {
         width: auto;
-        height: 2.8rem;
-        padding: 0 1rem;
-        font-size: 0.9rem;
-        border-radius: 2rem;
-        transition: all 0.3s ease;
+        height: 2.4rem;
+        padding: 0 0.8rem;
+        font-size: 0.85rem;
+        border-radius: var(--sd-radius-lg);
         font-variant-numeric: tabular-nums;
         display: flex;
         align-items: center;
@@ -1348,25 +1322,59 @@ body.library-page {
         gap: 0.4rem;
     }
 
-    .hide-mobile {
-        display: none;
+    .bulk-info {
+        border-right: none;
+        padding-right: 0;
+        margin-right: 0.5rem;
     }
 
     .bulk-divider {
-        display: none; /* Remove divider to save space */
+        display: none;
     }
-    
-    /* Remove top margin for back-btn on mobile */
-    .back-btn {
-        margin-top: 0;
+
+    .show-mobile {
+        display: inline;
+    }
+
+    .hide-mobile {
+        display: none;
     }
 
     .modal-content {
         margin: 0 1rem;
     }
 
-    /* Hide index on mobile */
-    .song-row > div:first-child {
-        display: none;
+    /* Edit modal — full-screen sheet on mobile */
+    .modal-content.edit-modal {
+        position: fixed;
+        inset: 0;
+        max-width: none;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        border-radius: 0;
+        display: flex;
+        flex-direction: column;
+        text-align: left;
+        overflow-y: auto;
+        padding: 1.5rem 1.25rem;
+        padding-top: calc(1.5rem + env(safe-area-inset-top, 0px));
+        padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    .modal-content.edit-modal .edit-form {
+        flex: 1;
+    }
+
+    .modal-content.edit-modal .modal-actions {
+        justify-content: stretch;
+    }
+
+    .modal-content.edit-modal .modal-btn {
+        flex: 1;
+    }
+
+    .no-items-message {
+        margin-top: 4rem;
     }
 }
