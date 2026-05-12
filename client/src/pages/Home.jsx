@@ -22,6 +22,23 @@ const greeting = () => {
     return 'Good evening';
 };
 
+const SliderRow = ({ label, value, min, max, onChange }) => (
+    <div className="home-prefs-row">
+        <div className="home-prefs-row-top">
+            <span>{label}</span>
+            <span className="home-prefs-val">{value}</span>
+        </div>
+        <input
+            type="range"
+            min={min}
+            max={max}
+            value={value}
+            onChange={onChange}
+            className="home-prefs-slider"
+        />
+    </div>
+);
+
 const Home = () => {
     const [songs, setSongs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -79,23 +96,6 @@ const Home = () => {
         window.dispatchEvent(new CustomEvent('home-prefs-saved'));
         closePrefs();
     };
-
-    const SliderRow = ({ label, field, min, max }) => (
-        <div className="home-prefs-row">
-            <div className="home-prefs-row-top">
-                <span>{label}</span>
-                <span className="home-prefs-val">{draft[field]}</span>
-            </div>
-            <input
-                type="range"
-                min={min}
-                max={max}
-                value={draft[field]}
-                onChange={e => setDraft(d => ({ ...d, [field]: parseInt(e.target.value) }))}
-                className="home-prefs-slider"
-            />
-        </div>
-    );
 
     return (
         <div className="home-wrap">
@@ -235,9 +235,9 @@ const Home = () => {
                             <button className="home-prefs-close" onClick={closePrefs}><FiX size={14} /></button>
                         </div>
                         <div className="home-prefs-body">
-                            <SliderRow label="Recently Added Albums" field="recentAlbums" min={3} max={30} />
-                            <SliderRow label="Recent Tracks" field="recentTracks" min={3} max={30} />
-                            <SliderRow label="Sidebar Artists" field="sidebarArtists" min={3} max={25} />
+                            <SliderRow label="Recently Added Albums" value={draft.recentAlbums} min={3} max={30} onChange={e => setDraft(d => ({ ...d, recentAlbums: parseInt(e.target.value) }))} />
+                            <SliderRow label="Recent Tracks" value={draft.recentTracks} min={3} max={30} onChange={e => setDraft(d => ({ ...d, recentTracks: parseInt(e.target.value) }))} />
+                            <SliderRow label="Sidebar Artists" value={draft.sidebarArtists} min={3} max={25} onChange={e => setDraft(d => ({ ...d, sidebarArtists: parseInt(e.target.value) }))} />
                         </div>
                         <div className="home-prefs-footer">
                             <button className="home-prefs-save" onClick={savePrefs}>Save</button>
