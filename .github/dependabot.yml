@@ -1,0 +1,44 @@
+version: 2
+
+updates:
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  # Root package.json
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      root-patch-minor:
+        update-types: [patch, minor]
+      root-major:
+        update-types: [major]
+
+  # Client
+  - package-ecosystem: npm
+    directory: /client
+    schedule:
+      interval: monthly
+    groups:
+      client-patch-minor:
+        update-types: [patch, minor]
+      client-major:
+        update-types: [major]
+
+  # Server
+  - package-ecosystem: npm
+    directory: /server
+    schedule:
+      interval: monthly
+    groups:
+      server-patch-minor:
+        update-types: [patch, minor]
+      server-major:
+        update-types: [major]
