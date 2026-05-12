@@ -83,11 +83,9 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
     };
 
     useEffect(() => {
-        /* eslint-disable react-hooks/set-state-in-effect */
         checkServerStatus();
         loadLibraryTree();
         loadStorageSize();
-        /* eslint-enable react-hooks/set-state-in-effect */
     }, []);
 
     useEffect(() => {
