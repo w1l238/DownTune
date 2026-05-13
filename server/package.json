@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test --experimental-test-coverage test/**/*.test.js"
   },
   "keywords": [],
   "author": "",
@@ -14,11 +14,11 @@
   "dependencies": {
     "18": "^0.0.0",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "music-metadata": "^11.10.3",
+    "music-metadata": "^11.12.3",
     "node-id3": "^0.2.6",
-    "p-limit": "^7.2.0",
-    "ytdlp-nodejs": "^3.4.2"
+    "p-limit": "^7.3.0",
+    "ytdlp-nodejs": "^3.4.4"
   }
 }
