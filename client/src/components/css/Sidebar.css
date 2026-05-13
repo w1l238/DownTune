@@ -7,7 +7,6 @@
     gap: 0.6rem;
     background: var(--sd-glass-10);
     backdrop-filter: blur(var(--sd-blur-md));
-    -webkit-backdrop-filter: blur(var(--sd-blur-md));
     border: 1px solid var(--sd-glass-border);
     border-radius: var(--sd-radius-xl);
     box-shadow: var(--sd-shadow-md);

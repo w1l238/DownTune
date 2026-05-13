@@ -15,7 +15,6 @@
     border: 1px solid var(--sd-glass-border-soft);
     border-radius: var(--sd-radius-xl);
     backdrop-filter: blur(var(--sd-blur-lg));
-    -webkit-backdrop-filter: blur(var(--sd-blur-lg));
     box-shadow: var(--sd-shadow-md);
 }
 
@@ -84,7 +83,6 @@
     border-radius: var(--sd-radius-xl);
     padding: 0.5rem 0.5rem 0.5rem 1rem;
     backdrop-filter: blur(var(--sd-blur-md));
-    -webkit-backdrop-filter: blur(var(--sd-blur-md));
     transition: all var(--sd-dur-fast) var(--sd-ease-glass);
     box-shadow: var(--sd-shadow-md);
 }
@@ -177,7 +175,6 @@
     border: 1px solid var(--sd-glass-border-soft);
     border-radius: var(--sd-radius-lg);
     backdrop-filter: blur(var(--sd-blur-sm));
-    -webkit-backdrop-filter: blur(var(--sd-blur-sm));
     cursor: pointer;
     transition: all var(--sd-dur-fast) var(--sd-ease-glass);
     text-align: center;
@@ -429,7 +426,6 @@
         border: none;
         box-shadow: none;
         backdrop-filter: none;
-        -webkit-backdrop-filter: none;
         padding: 0.25rem 0 0;
         gap: 0.85rem;
     }
@@ -483,7 +479,6 @@
 .home-prefs-modal {
     background: rgba(20, 24, 36, 0.85);
     backdrop-filter: blur(var(--sd-blur-lg));
-    -webkit-backdrop-filter: blur(var(--sd-blur-lg));
     border: 1px solid var(--sd-glass-border);
     border-radius: var(--sd-radius-xl);
     box-shadow: var(--sd-shadow-lg);

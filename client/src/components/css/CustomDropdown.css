@@ -18,7 +18,6 @@
     align-items: center;
     transition: all var(--sd-dur-fast) var(--sd-ease-glass);
     backdrop-filter: blur(var(--sd-blur-md));
-    -webkit-backdrop-filter: blur(var(--sd-blur-md));
 }
 
 .dropdown-header:hover {
@@ -46,7 +45,6 @@
 .dropdown-list {
     background-color: var(--sd-glass-05);
     backdrop-filter: blur(var(--sd-blur-xl));
-    -webkit-backdrop-filter: blur(var(--sd-blur-xl));
     border: 1px solid var(--sd-glass-border-soft);
     border-radius: var(--sd-radius-md);
     max-height: 300px;

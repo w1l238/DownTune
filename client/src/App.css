@@ -21,7 +21,6 @@
     grid-row: 1 / 2;
     background: var(--sd-glass-05);
     backdrop-filter: blur(var(--sd-blur-lg));
-    -webkit-backdrop-filter: blur(var(--sd-blur-lg));
     border: 1px solid var(--sd-glass-border-soft);
     border-radius: var(--sd-radius-xl);
     box-shadow: var(--sd-shadow-lg);

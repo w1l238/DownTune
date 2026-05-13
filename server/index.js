@@ -1,7 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import 'dotenv/config'; // Load environment variables
-import fs from 'fs/promises'; // Import fs.promises for async file operations
+import fs from 'fs/promises';
+import { existsSync } from 'fs';
 import path from 'path'; // Import path module
 import { fileURLToPath } from 'url';
 import { info, error, warning } from './logger.js';
@@ -114,10 +115,6 @@ const getSearchProvider = () => {
   }
   return new SpotifyProvider(spotifyAccessToken);
 };
-
-app.get('/', (req, res) => {
-  res.send('Hello from the backend!');
-});
 
 // Generic Search Endpoint
 app.get('/api/search', async (req, res) => {
@@ -666,6 +663,13 @@ app.delete('/api/files/:id', async (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to delete song.' });
   }
 });
+
+const clientDist = path.join(__dirname, '../client/dist');
+if (existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get('/{*splat}', (req, res) => res.sendFile(path.join(clientDist, 'index.html')));
+  info(`Serving client from ${clientDist}`);
+}
 
 app.listen(port, () => {
   info(`Backend listening at http://localhost:${port}`);

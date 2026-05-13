@@ -15,7 +15,6 @@
 .settings-section {
     background: var(--sd-glass-05);
     backdrop-filter: blur(var(--sd-blur-lg));
-    -webkit-backdrop-filter: blur(var(--sd-blur-lg));
     border: 1px solid var(--sd-glass-border-soft);
     border-radius: var(--sd-radius-lg);
     box-shadow: var(--sd-shadow-md);
@@ -74,7 +73,6 @@
     font-family: inherit;
     width: 100%;
     backdrop-filter: blur(var(--sd-blur-md));
-    -webkit-backdrop-filter: blur(var(--sd-blur-md));
     outline: 0;
     transition: all var(--sd-dur-fast) var(--sd-ease-glass);
 }
@@ -284,7 +282,6 @@
     align-items: center;
     transition: all var(--sd-dur-fast) var(--sd-ease-glass);
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
     box-shadow: var(--sd-shadow-sm);
 }
 

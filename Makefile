@@ -1,12 +1,13 @@
-.PHONY: dev setup lint lint-fix build clean help
+.PHONY: dev run setup lint lint-fix build clean help
 
 CLIENT_BIN := client/node_modules/.bin
 
 help:
-	@echo "Tunefall — available targets:"
+	@echo "DownTune — available targets:"
 	@echo ""
 	@echo "  make setup     Install all dependencies (client + server)"
-	@echo "  make dev       Run client and server concurrently"
+	@echo "  make dev       Run client and server concurrently (development)"
+	@echo "  make run       Build client then run server in production mode"
 	@echo "  make lint      Check client for lint errors"
 	@echo "  make lint-fix  Auto-fix fixable lint errors"
 	@echo "  make build     Build client for production"
@@ -19,12 +20,18 @@ setup:
 	@echo "Setup complete. Run 'make dev' to start."
 
 dev:
-	@echo "Starting Tunefall (client + server)..."
+	@echo "Starting DownTune (development)..."
+	@echo "Frontend → http://localhost:5173"
 	@npx concurrently \
 		--names "client,server" \
 		--prefix-colors "cyan,green" \
 		"npm run dev --prefix client" \
 		"npm run start --prefix server"
+
+run: build
+	@echo "Starting DownTune (production)..."
+	@echo "Open → http://localhost:3001"
+	@node server/index.js
 
 lint:
 	$(CLIENT_BIN)/eslint client/src
@@ -33,7 +40,7 @@ lint-fix:
 	$(CLIENT_BIN)/eslint client/src --fix
 
 build:
-	$(CLIENT_BIN)/vite build --config client/vite.config.js
+	npm run build --prefix client
 
 clean:
 	rm -rf client/node_modules server/node_modules

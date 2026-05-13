@@ -69,7 +69,6 @@
     flex-direction: column;
     gap: 0.2rem;
     backdrop-filter: blur(var(--sd-blur-md));
-    -webkit-backdrop-filter: blur(var(--sd-blur-md));
 }
 
 .queue-stat .stat-lab {
@@ -106,7 +105,6 @@
     border-radius: var(--sd-radius-md);
     transition: all var(--sd-dur-fast) var(--sd-ease-glass);
     backdrop-filter: blur(var(--sd-blur-md));
-    -webkit-backdrop-filter: blur(var(--sd-blur-md));
 }
 
 .queue-row-icon {

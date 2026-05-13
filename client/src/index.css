@@ -68,7 +68,6 @@ button {
   font-family: inherit;
   background-color: var(--sd-glass-10);
   backdrop-filter: blur(var(--sd-blur-md));
-  -webkit-backdrop-filter: blur(var(--sd-blur-md));
   box-shadow: var(--sd-shadow-md);
   color: white;
   cursor: pointer;

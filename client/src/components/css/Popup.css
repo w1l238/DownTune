@@ -14,7 +14,6 @@
     transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
     border: 1px solid var(--sd-glass-border-strong);
     backdrop-filter: blur(var(--sd-blur-sm));
-    -webkit-backdrop-filter: blur(var(--sd-blur-sm));
 }
 
 .popup.show {
@@ -47,7 +46,6 @@
     background: none !important;
     border: none !important;
     backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
     color: white;
     font-size: 1rem;
     cursor: pointer;

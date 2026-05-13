@@ -48,6 +48,8 @@ function Shell() {
         const bgImage = localStorage.getItem('app_bg_image');
         const bgGradient = localStorage.getItem('app_background');
         const bgDim = localStorage.getItem('app_bg_dim');
+        const blurBase = parseFloat(localStorage.getItem('app_blur_base') || '10');
+
         if (bgImage) {
             document.body.style.background = `url(${bgImage}) center / cover fixed`;
             document.body.style.animation = 'none';
@@ -57,6 +59,12 @@ function Shell() {
         if (bgDim) {
             document.body.style.setProperty('--bg-dim', bgDim);
         }
+
+        const r = document.documentElement.style;
+        r.setProperty('--sd-blur-sm', `${blurBase * 0.5}px`);
+        r.setProperty('--sd-blur-md', `${blurBase}px`);
+        r.setProperty('--sd-blur-lg', `${blurBase * 1.5}px`);
+        r.setProperty('--sd-blur-xl', `${blurBase * 2}px`);
     }, []);
 
     return (

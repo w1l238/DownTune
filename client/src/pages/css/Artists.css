@@ -22,7 +22,6 @@
     background: var(--sd-glass-05);
     border: 1px solid var(--sd-glass-border-soft);
     backdrop-filter: blur(var(--sd-blur-sm));
-    -webkit-backdrop-filter: blur(var(--sd-blur-sm));
     cursor: pointer;
     transition: all var(--sd-dur-base) var(--sd-ease-glass);
 }
@@ -81,7 +80,6 @@
     border: 1px solid var(--sd-glass-border-soft);
     border-radius: var(--sd-radius-lg);
     backdrop-filter: blur(var(--sd-blur-sm));
-    -webkit-backdrop-filter: blur(var(--sd-blur-sm));
 }
 
 .artist-hero .artist-portrait {
@@ -119,7 +117,6 @@
     width: fit-content;
     transition: all var(--sd-dur-fast) var(--sd-ease-glass);
     backdrop-filter: blur(var(--sd-blur-md));
-    -webkit-backdrop-filter: blur(var(--sd-blur-md));
     box-shadow: var(--sd-shadow-sm);
 }
 

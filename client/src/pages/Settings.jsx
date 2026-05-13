@@ -24,6 +24,7 @@ const Settings = () => {
     const [appliedBgImage, setAppliedBgImage] = useState(() => localStorage.getItem('app_bg_image') || '');
     const [bgDim, setBgDim] = useState(() => parseFloat(localStorage.getItem('app_bg_dim') || '0'));
     const [albumArtStyle, setAlbumArtStyle] = useState(() => localStorage.getItem('album_art_style') || 'background');
+    const [blurBase, setBlurBase] = useState(() => parseFloat(localStorage.getItem('app_blur_base') || '10'));
     const [saving, setSaving] = useState(false);
 
     const backgrounds = [
@@ -52,6 +53,14 @@ const Settings = () => {
             .catch(() => {});
     }, []);
 
+    const applyBlur = (base) => {
+        const r = document.documentElement.style;
+        r.setProperty('--sd-blur-sm', `${base * 0.5}px`);
+        r.setProperty('--sd-blur-md', `${base}px`);
+        r.setProperty('--sd-blur-lg', `${base * 1.5}px`);
+        r.setProperty('--sd-blur-xl', `${base * 2}px`);
+    };
+
     const handleSave = async () => {
         if (limit < 1 || limit > 50) {
             showNotification('Results limit must be between 1 and 50.', 'error');
@@ -67,6 +76,7 @@ const Settings = () => {
             localStorage.setItem('app_bg_image', bgImageUrl.trim());
             localStorage.setItem('app_bg_dim', bgDim);
             localStorage.setItem('album_art_style', albumArtStyle);
+            localStorage.setItem('app_blur_base', blurBase);
         } catch { /* storage quota exceeded — continue with save */ }
 
         const imageUrl = bgImageUrl.trim();
@@ -184,6 +194,26 @@ const Settings = () => {
                         <span className="dim-value">{Math.round(bgDim * 100)}%</span>
                     </div>
                     <p className="field-desc">Darken the background image so text is easier to read.</p>
+                </div>
+                <div className="field">
+                    <label>Glass Blur Intensity</label>
+                    <div className="dim-slider-row">
+                        <input
+                            type="range"
+                            className="dim-slider"
+                            min="0"
+                            max="20"
+                            step="1"
+                            value={blurBase}
+                            onChange={e => {
+                                const v = parseFloat(e.target.value);
+                                setBlurBase(v);
+                                applyBlur(v);
+                            }}
+                        />
+                        <span className="dim-value">{blurBase}px</span>
+                    </div>
+                    <p className="field-desc">Controls the frosted glass blur across the entire UI. 0 disables it, 10 is the default.</p>
                 </div>
             </div>
 
