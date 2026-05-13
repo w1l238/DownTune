@@ -12,5 +12,9 @@ AGENTS.md
 # UI Redesign Files
 v2-design/
 
-# Dependabot 
+# Dependabot
 dependabot-PRs
+
+# Runtime data
+server/favorites.json
+server/metadata_cache.json
