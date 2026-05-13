@@ -174,10 +174,13 @@ export class MetadataService {
         }
     }
 
-    // Extract genre if available
+    // Extract genre from the recording that contains the best release
     let genre = undefined;
-    if (recording.tags && recording.tags.length > 0) {
-        genre = recording.tags[0].name;
+    const sourceRecording = data.recordings.find(r =>
+        r.releases && r.releases.some(rel => rel.title === bestRelease.title)
+    );
+    if (sourceRecording?.tags && sourceRecording.tags.length > 0) {
+        genre = sourceRecording.tags[0].name;
     }
 
     return {
