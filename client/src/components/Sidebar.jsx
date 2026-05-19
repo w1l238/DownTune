@@ -30,7 +30,16 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
     const [expandedArtists, setExpandedArtists] = useState({});
     const [artistsLimit, setArtistsLimit] = useState(getArtistsLimit);
     const [storageBytes, setStorageBytes] = useState(null);
+    const [keyboardOpen, setKeyboardOpen] = useState(false);
     const inputRef = useRef(null);
+
+    useEffect(() => {
+        const vv = window.visualViewport;
+        if (!vv) return;
+        const check = () => setKeyboardOpen(vv.height < window.innerHeight * 0.75);
+        vv.addEventListener('resize', check);
+        return () => vv.removeEventListener('resize', check);
+    }, []);
 
     useEffect(() => {
         const handler = () => setArtistsLimit(getArtistsLimit());
@@ -148,7 +157,7 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
     const dlPosition = dlDone.length + (dlActive ? 1 : 0);
 
     return (
-        <aside className={`sidebar ${collapsed ? 'collapsed' : ''}${downloads.length > 0 ? ' has-download' : ''}`}>
+        <aside className={`sidebar ${collapsed ? 'collapsed' : ''}${downloads.length > 0 ? ' has-download' : ''}${keyboardOpen ? ' keyboard-open' : ''}`}>
             {/* Header */}
             <div className="sidebar-head">
                 <img src="/tunefall-logo.svg" alt="DownTune" className="sidebar-logo" />
