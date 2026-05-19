@@ -1,21 +1,34 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { FiArrowLeft, FiSearch, FiHeart } from 'react-icons/fi';
+import { FiArrowLeft, FiSearch, FiHeart, FiGrid, FiList } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { getSpeedOption, applySongLayout } from '../utils/appearance';
+import MobileSearchBar from '../components/MobileSearchBar';
 import './css/Artists.css';
 import './css/Albums.css';
 
 const Artists = () => {
+    const speedOpt = getSpeedOption(localStorage.getItem('app_animation_speed') || 'normal');
+    const instant = speedOpt.staggerDelay === 0;
     const [songs, setSongs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedArtist, setSelectedArtist] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-    const [animationsDone, setAnimationsDone] = useState(false);
+    const [animationsDone, setAnimationsDone] = useState(instant);
+    const [songLayout, setSongLayout] = useState(() => localStorage.getItem('artists_layout') || 'grid');
+    const layoutClicked = useRef(false);
     const animationTimer = useRef(null);
     const headerRef = useRef(null);
     const navigate = useNavigate();
+
+    const triggerAnimation = useCallback(() => {
+        if (instant) return;
+        setAnimationsDone(false);
+        if (animationTimer.current) clearTimeout(animationTimer.current);
+        animationTimer.current = setTimeout(() => setAnimationsDone(true), 1500);
+    }, [instant]);
 
     const fetchSongs = useCallback((initial = false) => {
         fetch(`${API_BASE_URL}/api/library`)
@@ -24,17 +37,26 @@ const Artists = () => {
                 setSongs(data);
                 if (initial) {
                     setLoading(false);
-                    animationTimer.current = setTimeout(() => setAnimationsDone(true), 1500);
+                    triggerAnimation();
                 }
             })
             .catch(() => { if (initial) setLoading(false); });
-    }, []);
+    }, [triggerAnimation]);
 
     useEffect(() => {
         document.title = 'Artists — DownTune';
+        applySongLayout(songLayout);
         fetchSongs(true);
         return () => { if (animationTimer.current) clearTimeout(animationTimer.current); };
     }, []);
+
+    const toggleLayout = () => {
+        layoutClicked.current = true;
+        const next = songLayout === 'list' ? 'grid' : 'list';
+        setSongLayout(next);
+        applySongLayout(next);
+        localStorage.setItem('artists_layout', next);
+    };
 
     useAutoRefresh(fetchSongs);
 
@@ -90,7 +112,7 @@ const Artists = () => {
 
         return (
             <div className="artist-detail">
-                <button className="section-back" onClick={() => { setSelectedArtist(null); setAnimationsDone(false); animationTimer.current = setTimeout(() => setAnimationsDone(true), 1500); }}>
+                <button className="section-back" onClick={() => { setSelectedArtist(null); triggerAnimation(); }}>
                     <FiArrowLeft size={15} /> Artists
                 </button>
                 <div className="artist-hero">
@@ -105,7 +127,7 @@ const Artists = () => {
                         <div
                             key={albumName}
                             className={`albums-card${!animationsDone ? ' fade-in' : ''}`}
-                            style={{ animationDelay: !animationsDone ? `${Math.min(index * 0.04, 0.5)}s` : '0s' }}
+                            style={{ animationDelay: !animationsDone ? `${Math.min(index * speedOpt.staggerDelay, 0.6)}s` : '0s' }}
                             onClick={() => navigate(`/album/${encodeURIComponent(albumName)}`)}
                         >
                             <div className="albums-art">
@@ -119,7 +141,7 @@ const Artists = () => {
                             <div className="meta-row">
                                 <span>{albumSongs.length} songs</span>
                                 {albumSongs.some(s => s.isLiked) && (
-                                    <FiHeart size={11} fill="white" style={{ opacity: 0.55 }} />
+                                    <FiHeart size={11} fill="currentColor" />
                                 )}
                             </div>
                         </div>
@@ -144,6 +166,15 @@ const Artists = () => {
                         />
                     </div>
                     <button
+                        className="page-icon-btn"
+                        onClick={toggleLayout}
+                        title={songLayout === 'grid' ? 'Switch to list' : 'Switch to grid'}
+                    >
+                        <span key={songLayout} className={layoutClicked.current ? 'layout-icon-anim' : ''}>
+                            {songLayout === 'grid' ? <FiList size={15} /> : <FiGrid size={15} />}
+                        </span>
+                    </button>
+                    <button
                         className={`page-icon-btn ${showFavoritesOnly ? 'active' : ''}`}
                         onClick={() => setShowFavoritesOnly(f => !f)}
                         title={showFavoritesOnly ? 'Show all' : 'Show favorites only'}
@@ -155,7 +186,11 @@ const Artists = () => {
 
             {filtered.length === 0 ? (
                 <p className="artists-empty">
-                    {songs.length === 0 ? 'No artists in library. Download some songs first.' : 'No artists match your search.'}
+                    {songs.length === 0
+                        ? 'No artists in library. Download some songs first.'
+                        : showFavoritesOnly
+                        ? 'No favorite artists yet.'
+                        : 'No artists match your search.'}
                 </p>
             ) : (
                 <div className="artist-grid">
@@ -163,16 +198,25 @@ const Artists = () => {
                         <div
                             key={artist.name}
                             className={`artist-card${!animationsDone ? ' fade-in' : ''}`}
-                            style={{ animationDelay: !animationsDone ? `${Math.min(index * 0.04, 0.5)}s` : '0s' }}
-                            onClick={() => { setSelectedArtist(artist.name); setAnimationsDone(false); animationTimer.current = setTimeout(() => setAnimationsDone(true), 1500); }}
+                            style={{ animationDelay: !animationsDone ? `${Math.min(index * speedOpt.staggerDelay, 0.6)}s` : '0s' }}
+                            onClick={() => { setSelectedArtist(artist.name); triggerAnimation(); }}
                         >
                             <div className="artist-portrait">{initials(artist.name)}</div>
-                            <h3 title={artist.name}>{artist.name}</h3>
-                            <p>{Object.keys(artist.albums).length} albums</p>
+                            <div className="artist-card-info">
+                                <h3 title={artist.name}>{artist.name}</h3>
+                                <p>{Object.keys(artist.albums).length} albums</p>
+                            </div>
                         </div>
                     ))}
                 </div>
             )}
+
+            <MobileSearchBar
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search artists…"
+                buttonLabel="Go"
+            />
         </div>
     );
 };
