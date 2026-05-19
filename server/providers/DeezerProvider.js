@@ -32,7 +32,7 @@ export class DeezerProvider extends SongProvider {
               { url: track.album.cover_medium, height: 250, width: 250 },
               { url: track.album.cover_small, height: 56, width: 56 }
             ].filter(img => img.url),
-            release_date: undefined // Deezer search doesn't return year, but we'll fetch it during download if needed
+            release_date: undefined
           },
           isDeezer: true,
           url: track.link

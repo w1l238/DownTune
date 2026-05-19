@@ -60,7 +60,7 @@ export class MetadataService {
       await this.throttle();
       
       const query = `recording:"${title}" AND artist:"${artist}"`;
-      const url = `https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(query)}&fmt=json&inc=tags`;
+      const url = `https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(query)}&fmt=json&inc=genres+tags`;
       
       info(`Enriching metadata via MusicBrainz: ${artist} - ${title}`);
       const response = await fetch(url, {
@@ -174,12 +174,14 @@ export class MetadataService {
         }
     }
 
-    // Extract genre from the recording that contains the best release
+    // Extract genre — prefer curated genres over folksonomy tags
     let genre = undefined;
     const sourceRecording = data.recordings.find(r =>
         r.releases && r.releases.some(rel => rel.title === bestRelease.title)
     );
-    if (sourceRecording?.tags && sourceRecording.tags.length > 0) {
+    if (sourceRecording?.genres?.length > 0) {
+        genre = sourceRecording.genres[0].name;
+    } else if (sourceRecording?.tags?.length > 0) {
         genre = sourceRecording.tags[0].name;
     }
 
