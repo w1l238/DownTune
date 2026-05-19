@@ -26,12 +26,12 @@ dev:
 		--names "client,server" \
 		--prefix-colors "cyan,green" \
 		"npm run dev --prefix client" \
-		"npm run start --prefix server"
+		"NODE_ENV=development npm run start --prefix server"
 
 run: build
 	@echo "Starting DownTune (production)..."
-	@echo "Open → http://localhost:3001"
-	@node server/index.js
+	@echo "Open → http://localhost:3000"
+	@PORT=3000 node server/index.js
 
 lint:
 	$(CLIENT_BIN)/eslint client/src

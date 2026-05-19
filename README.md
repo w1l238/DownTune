@@ -27,7 +27,21 @@ There are many other tweaks and additions that have made their way into this new
 
 
 ## Setup (Baremetal)
-1. Run `npm install` in both the `client` and `server` folders, then running `make dev` in the project root to get both back/frontend running.
+
+### Option 1
+1. Run `npm install` in both the `client` and `server` folders, then running `make dev` (development) or `make run` (production) from the project root to run the web app.
+
+### Option 2
+1. Run `./setup.sh` (linux) or `setup.ps1` (windows) which will install all dependencies for both the client and server.
+2. Run `make run` (production) or `make dev` (development) from the project root to run the web app. Run `make help` if you need descriptions and a list of commands given.
+
+### Keep in mind
+`make dev` and `make run` run on separate ports. In `make dev` the frontend and backend run independently; in `make run` everything is served from the Express backend on a single port.
+
+| | `make dev` | `make run` |
+|---|---|---|
+| Frontend | http://localhost:5173 | http://localhost:3000 |
+| Backend API | http://localhost:3001 | http://localhost:3000/api/* |
 
 ### Spotify Setup (Optional)
 2. Visit [Spotify's Documentation](https://developer.spotify.com/documentation/web-api) on their web-api and walkthrough the app creation process to obtain your spotify api keys if you so choose. 
