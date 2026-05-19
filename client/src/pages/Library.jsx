@@ -6,10 +6,12 @@ import toast, { Toaster } from 'react-hot-toast';
 import { useInView } from 'react-intersection-observer';
 import { API_BASE_URL } from '../config';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { getSpeedOption, applySongLayout } from '../utils/appearance';
+import MobileSearchBar from '../components/MobileSearchBar';
 import './css/Library.css';
 import './css/Albums.css';
 
-const LazyAlbumCard = ({ album, index, animationsDone, handleAlbumClick, lastUpdate }) => {
+const LazyAlbumCard = ({ album, index, animationsDone, staggerDelay, handleAlbumClick, lastUpdate }) => {
     const { ref, inView } = useInView({
         triggerOnce: true, // Only trigger once to load content
         rootMargin: '200px 0px', // Preload content 200px before it comes into view
@@ -20,7 +22,7 @@ const LazyAlbumCard = ({ album, index, animationsDone, handleAlbumClick, lastUpd
         <div 
             ref={ref}
             className={`album-card-wrapper ${!animationsDone ? 'fade-in' : ''}`}
-            style={{ animationDelay: !animationsDone ? `${Math.min(index * 0.03, 0.5)}s` : '0s', minHeight: '250px' }}
+            style={{ animationDelay: !animationsDone ? `${Math.min(index * staggerDelay, 0.6)}s` : '0s', minHeight: '250px' }}
         >
             {inView ? (
                 <div 
@@ -57,7 +59,11 @@ const Library = () => {
     const [errorModal, setErrorModal] = useState({ show: false, message: '' });
     const [editModal, setEditModal] = useState({ show: false, song: null });
     const [scanStatus, setScanStatus] = useState('idle'); // 'idle' | 'loading' | 'success' | 'error'
-    const [animationsDone, setAnimationsDone] = useState(false);
+    const speedOpt = getSpeedOption(localStorage.getItem('app_animation_speed') || 'normal');
+    const instant = speedOpt.staggerDelay === 0;
+    const [animationsDone, setAnimationsDone] = useState(instant);
+    const [songLayout, setSongLayout] = useState(() => localStorage.getItem('lib_layout') || 'grid');
+    const layoutClicked = useRef(false);
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
     const [openMenuId, setOpenMenuId] = useState(null);
     const [selectedIds, setSelectedIds] = useState([]);
@@ -67,6 +73,7 @@ const Library = () => {
     const [isClosing, setIsClosing] = useState(false);
     const [menuOpenUpwards, setMenuOpenUpwards] = useState(false);
     const [lastUpdate, setLastUpdate] = useState(Date.now());
+    const [backendError, setBackendError] = useState(false);
     const animationTimer = useRef(null);
     const containerRef = useRef(null);
     const headerRef = useRef(null);
@@ -94,7 +101,8 @@ const Library = () => {
 
     useEffect(() => {
         document.title = 'Library — DownTune';
-        
+        applySongLayout(songLayout);
+
         const shouldAutoScan = localStorage.getItem('auto_scan_library') === 'true';
         if (shouldAutoScan) {
             handleScan();
@@ -102,12 +110,22 @@ const Library = () => {
             fetchLibrary();
         }
 
-        animationTimer.current = setTimeout(() => setAnimationsDone(true), 1500);
+        if (!instant) {
+            animationTimer.current = setTimeout(() => setAnimationsDone(true), 1500);
+        }
         return () => {
             if (animationTimer.current) clearTimeout(animationTimer.current);
             document.body.classList.remove('bulk-bar-showing');
         };
     }, []);
+
+    const toggleLayout = () => {
+        layoutClicked.current = true;
+        const next = songLayout === 'list' ? 'grid' : 'list';
+        setSongLayout(next);
+        applySongLayout(next);
+        localStorage.setItem('lib_layout', next);
+    };
 
     const fetchLibrary = async () => {
         setLoading(true);
@@ -117,12 +135,15 @@ const Library = () => {
                 const data = await response.json();
                 setSongs(data);
                 setLastUpdate(Date.now());
+                setBackendError(false);
             } else {
                 toast.error('Failed to load library');
+                setBackendError(true);
             }
         } catch (error) {
             console.error('Error fetching library:', error);
             toast.error('Network error loading library', { id: 'network-error' });
+            setBackendError(true);
         } finally {
             setLoading(false);
         }
@@ -265,9 +286,13 @@ const Library = () => {
                     artist: song.artist,
                     album: song.album,
                     trackNumber: song.trackNumber,
+                    discNumber: song.discNumber,
                     year: song.year,
                     releaseTime: song.releaseTime,
-                    artworkUrl: song.artworkUrl
+                    genre: song.genre,
+                    comment: song.comment,
+                    lyrics: song.lyrics,
+                    artworkUrl: song.artworkUrl,
                 })
             });
 
@@ -346,6 +371,12 @@ const Library = () => {
         return `${min}:${sec < 10 ? '0' : ''}${sec}`;
     };
 
+    const formatSize = (bytes) => {
+        if (!bytes) return '—';
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
     // Group songs by Album
     const albums = useMemo(() => {
         const groups = {};
@@ -396,13 +427,15 @@ const handleBack = () => {
         if (animationTimer.current) clearTimeout(animationTimer.current);
         if (containerRef.current) containerRef.current.scrollTop = 0;
 
-        setAnimationsDone(false);
         setView('albums');
         setSelectedAlbum(null);
         // Removed: setSearchQuery('');
         setSelectedIds([]);
         setIsSelectionMode(false);
-        animationTimer.current = setTimeout(() => setAnimationsDone(true), 1500);
+        if (!instant) {
+            setAnimationsDone(false);
+            animationTimer.current = setTimeout(() => setAnimationsDone(true), 1500);
+        }
     };
 
     const toggleSelect = (id) => {
@@ -519,15 +552,16 @@ const handleBack = () => {
             onClick={handleContainerClick}
         >
             <Toaster position={window.innerWidth <= 768 ? "top-center" : "bottom-center"} toastOptions={{
-                className: '',
                 style: {
-                    background: 'transparent',
+                    background: 'rgba(15, 23, 42, 0.55)',
                     color: 'white',
-                    backdropFilter: 'blur(15px)',
-                    border: '1px solid rgba(255,255,255,0.3)',
-                    borderRadius: '1rem',
-                    boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
-                }
+                    backdropFilter: 'blur(var(--sd-blur-lg))',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    borderRadius: '0.85rem',
+                    boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+                },
+                success: { style: { background: 'rgba(20, 184, 166, 0.35)', border: '1px solid rgba(20, 184, 166, 0.4)' } },
+                error:   { style: { background: 'rgba(255, 49, 49, 0.35)',   border: '1px solid rgba(255, 49, 49, 0.4)' } },
             }} />
             
             {view === 'albums' && (
@@ -543,6 +577,15 @@ const handleBack = () => {
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
                         </div>
+                        <button
+                            className="page-icon-btn"
+                            onClick={toggleLayout}
+                            title={songLayout === 'grid' ? 'Switch to list' : 'Switch to grid'}
+                        >
+                            <span key={songLayout} className={layoutClicked.current ? 'layout-icon-anim' : ''}>
+                                {songLayout === 'grid' ? <FiList size={15} /> : <FiGrid size={15} />}
+                            </span>
+                        </button>
                         <button
                             className={`page-icon-btn ${showFavoritesOnly ? 'active' : ''}`}
                             onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
@@ -599,11 +642,12 @@ const handleBack = () => {
                     {view === 'albums' && (
                         <div className="album-grid">
                             {filteredContent.map((album, index) => (
-                                <LazyAlbumCard 
+                                <LazyAlbumCard
                                     key={album.name}
                                     album={album}
                                     index={index}
                                     animationsDone={animationsDone}
+                                    staggerDelay={speedOpt.staggerDelay}
                                     handleAlbumClick={handleAlbumClick}
                                     lastUpdate={lastUpdate}
                                 />
@@ -669,7 +713,7 @@ const handleBack = () => {
                              </div>
 
                              <div className="song-list">
-                                <div className={`song-list-header ${!animationsDone ? 'fade-in' : ''}`} style={{ animationDelay: '0.1s' }}>
+                                <div className={`song-list-header ${!animationsDone ? 'fade-in' : ''}`} style={{ animationDelay: !animationsDone ? `${speedOpt.staggerDelay}s` : '0s' }}>
                                     <div>
                                         {isSelectionMode ? (
                                             <input 
@@ -682,14 +726,15 @@ const handleBack = () => {
                                     </div>
                                     <div>Title</div>
                                     <div>Duration</div>
+                                    <div className="hide-mobile">Size</div>
                                     <div></div>
                                 </div>
                                 {filteredContent.map((song, index) => (
                                     <div 
                                         key={song.id} 
                                         className={`song-row ${!animationsDone ? 'fade-in' : ''} ${openMenuId === song.id ? 'is-active-row' : ''} ${selectedIds.includes(song.id) ? 'selected' : ''}`}
-                                        style={{ 
-                                            animationDelay: `${0.2 + Math.min(index * 0.03, 0.5)}s`
+                                        style={{
+                                            animationDelay: !animationsDone ? `${Math.min((index + 2) * speedOpt.staggerDelay, 0.6)}s` : '0s'
                                         }}
                                         onClick={() => isSelectionMode && toggleSelect(song.id)}
                                     >
@@ -706,40 +751,50 @@ const handleBack = () => {
                                             )}
                                         </div>
                                         <div style={{ fontWeight: 'bold' }}>{song.title}</div>
-                                        <div style={{ fontFamily: 'monospace', opacity: 0.7 }}>{formatDuration(song.duration)}</div>
-                                        <div className="action-container" style={{ position: 'relative', display: 'flex', justifyContent: 'flex-end' }}>
-                                            <button 
-                                                className="icon-btn more-btn" 
-                                                style={{ 
-                                                    opacity: isSelectionMode ? 0 : 1,
-                                                    pointerEvents: isSelectionMode ? 'none' : 'auto'
-                                                }}
-                                                onClick={(e) => { 
-                                                    e.stopPropagation(); 
+                                        <div className="song-row-duration">{formatDuration(song.duration)}</div>
+                                        <div className="song-row-size hide-mobile">{formatSize(song.size)}</div>
+                                        {/* Mobile: three-dot menu */}
+                                        <div className="action-container" style={{ position: 'relative', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                            <button
+                                                className="icon-btn more-btn show-mobile"
+                                                style={{ opacity: isSelectionMode ? 0 : 1, pointerEvents: isSelectionMode ? 'none' : 'auto' }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
                                                     const rect = e.currentTarget.getBoundingClientRect();
-                                                    const spaceBelow = window.innerHeight - rect.bottom;
-                                                    setMenuOpenUpwards(spaceBelow < 200); // 200px threshold
-                                                    setOpenMenuId(openMenuId === song.id ? null : song.id); 
+                                                    setMenuOpenUpwards(window.innerHeight - rect.bottom < 200);
+                                                    setOpenMenuId(openMenuId === song.id ? null : song.id);
                                                 }}
                                             >
                                                 <FiMoreVertical />
                                             </button>
-                                            
                                             {openMenuId === song.id && (
-                                                <>
-                                                    <div className={`song-menu-dropdown ${menuOpenUpwards ? 'open-upwards' : ''}`}>
-                                                        <button onClick={(e) => { e.stopPropagation(); toggleFavorite(song); setOpenMenuId(null); }}>
-                                                            <FiHeart fill={song.isLiked ? 'white' : 'none'} /> <span>{song.isLiked ? 'Unlike' : 'Like'}</span>
-                                                        </button>
-                                                        <button onClick={(e) => { e.stopPropagation(); handleEditClick(song); setOpenMenuId(null); }}>
-                                                            <FiEdit /> <span>Edit</span>
-                                                        </button>
-                                                        <button onClick={(e) => { e.stopPropagation(); handleDeleteClick(song); setOpenMenuId(null); }} className="delete-option">
-                                                            <FiTrash2 /> <span>Delete</span>
-                                                        </button>
-                                                    </div>
-                                                </>
+                                                <div className={`song-menu-dropdown ${menuOpenUpwards ? 'open-upwards' : ''}`}>
+                                                    <button onClick={(e) => { e.stopPropagation(); toggleFavorite(song); setOpenMenuId(null); }}>
+                                                        <FiHeart fill={song.isLiked ? 'white' : 'none'} /> <span>{song.isLiked ? 'Unlike' : 'Like'}</span>
+                                                    </button>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleEditClick(song); setOpenMenuId(null); }}>
+                                                        <FiEdit /> <span>Edit</span>
+                                                    </button>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteClick(song); setOpenMenuId(null); }} className="delete-option">
+                                                        <FiTrash2 /> <span>Delete</span>
+                                                    </button>
+                                                </div>
                                             )}
+                                        </div>
+                                        {/* Desktop: slide-in pill buttons (position: absolute via CSS) */}
+                                        <div className="song-row-actions hide-mobile">
+                                            <button className={`row-action-btn like${song.isLiked ? ' active' : ''}`} title={song.isLiked ? 'Unlike' : 'Like'} onClick={(e) => { e.stopPropagation(); toggleFavorite(song); }}>
+                                                <FiHeart size={13} fill={song.isLiked ? 'currentColor' : 'none'} />
+                                                <span>{song.isLiked ? 'Unlike' : 'Like'}</span>
+                                            </button>
+                                            <button className="row-action-btn edit" title="Edit" onClick={(e) => { e.stopPropagation(); handleEditClick(song); }}>
+                                                <FiEdit size={13} />
+                                                <span>Edit</span>
+                                            </button>
+                                            <button className="row-action-btn delete" title="Delete" onClick={(e) => { e.stopPropagation(); handleDeleteClick(song); }}>
+                                                <FiTrash2 size={13} />
+                                                <span>Delete</span>
+                                            </button>
                                         </div>
                                     </div>
                                 ))}
@@ -749,10 +804,15 @@ const handleBack = () => {
 
                     {filteredContent.length === 0 && !loading && (
                         <div style={{ textAlign: 'center', marginTop: '4rem', opacity: 0.5 }}>
-                            No items found.
-                            <div>
-                                <b>Is the backend running?</b>
-                            </div>
+                            {backendError && songs.length === 0 ? (
+                                <>No items found.<div><b>Is the backend running?</b></div></>
+                            ) : songs.length === 0 ? (
+                                'Your library is empty. Download some songs to get started.'
+                            ) : showFavoritesOnly ? (
+                                'No favorites yet.'
+                            ) : (
+                                `No results for "${searchQuery}".`
+                            )}
                         </div>
                     )}
                 </>
@@ -762,10 +822,10 @@ const handleBack = () => {
             {editModal.show && (
                 <div className="modal-overlay" onClick={() => setEditModal({ show: false, song: null })}>
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
-                        <button className="modal-close-btn" onClick={() => setEditModal({ show: false, song: null })}>
-                            <FiX />
-                        </button>
-                        <h3>Edit Metadata</h3>
+                        <div className="modal-header">
+                            <span className="modal-title"><FiEdit size={13} /> Edit Metadata</span>
+                            <button className="modal-close-btn" onClick={() => setEditModal({ show: false, song: null })}><FiX size={13} /></button>
+                        </div>
                         <div className="edit-form">
                             <label>Title</label>
                             <input 
@@ -795,32 +855,64 @@ const handleBack = () => {
                             />
 
                             <label>Track Number</label>
-                            <input 
-                                type="text" 
-                                value={editModal.song.trackNumber || ''} 
+                            <input
+                                type="text"
+                                value={editModal.song.trackNumber || ''}
                                 onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, trackNumber: e.target.value } })}
                                 placeholder="e.g. 1"
                             />
 
+                            <label>Disc Number</label>
+                            <input
+                                type="text"
+                                value={editModal.song.discNumber || ''}
+                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, discNumber: e.target.value } })}
+                                placeholder="e.g. 1"
+                            />
+
+                            <label>Genre</label>
+                            <input
+                                type="text"
+                                value={editModal.song.genre || ''}
+                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, genre: e.target.value } })}
+                                placeholder="e.g. Electronic"
+                            />
+
                             <label>Release Year (Detailed)</label>
-                            <input 
-                                type="text" 
-                                value={editModal.song.releaseTime || ''} 
+                            <input
+                                type="text"
+                                value={editModal.song.releaseTime || ''}
                                 onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, releaseTime: e.target.value } })}
                                 placeholder="e.g. 2024-03-12"
                             />
-                            
+
+                            <label>Comment</label>
+                            <textarea
+                                value={editModal.song.comment || ''}
+                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, comment: e.target.value } })}
+                                placeholder="Optional notes or comment"
+                                rows={2}
+                            />
+
+                            <label>Lyrics</label>
+                            <textarea
+                                value={editModal.song.lyrics || ''}
+                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, lyrics: e.target.value } })}
+                                placeholder="Paste lyrics here…"
+                                rows={6}
+                            />
+
                             <label>New Artwork URL (Optional)</label>
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 placeholder="https://example.com/image.jpg"
-                                value={editModal.song.artworkUrl || ''} 
+                                value={editModal.song.artworkUrl || ''}
                                 onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, artworkUrl: e.target.value } })}
                             />
                         </div>
                         <div className="modal-actions">
                             <button className="modal-btn cancel" onClick={() => setEditModal({ show: false, song: null })}>Cancel</button>
-                            <button className="modal-btn save" onClick={saveMetadata} style={{ background: '#1db954', color: 'white' }}>Save</button>
+                            <button className="modal-btn save" onClick={saveMetadata}>Save</button>
                         </div>
                     </div>
                 </div>
@@ -892,6 +984,12 @@ const handleBack = () => {
                     </div>
                 </div>
             )}
+            <MobileSearchBar
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search albums…"
+                buttonLabel="Go"
+            />
         </div>
     );
 };
