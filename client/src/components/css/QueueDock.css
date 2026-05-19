@@ -29,7 +29,7 @@
     justify-content: center;
     flex-shrink: 0;
     border: 1px solid rgba(255, 255, 255, 0.3);
-    transition: background 0.3s ease;
+    transition: background var(--sd-dur-base) var(--sd-ease-glass);
 }
 
 .dock-icon svg {

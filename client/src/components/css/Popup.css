@@ -11,7 +11,7 @@
     z-index: 1000;
     opacity: 0;
     transform: translateX(20px);
-    transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+    transition: opacity var(--sd-dur-slow) var(--sd-ease-glass), transform var(--sd-dur-slow) var(--sd-ease-glass);
     border: 1px solid var(--sd-glass-border-strong);
     backdrop-filter: blur(var(--sd-blur-sm));
 }

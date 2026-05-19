@@ -11,7 +11,7 @@
     border-radius: var(--sd-radius-xl);
     box-shadow: var(--sd-shadow-md);
     padding: 1rem;
-    transition: width 0.35s var(--sd-ease-glass);
+    transition: width var(--sd-dur-slow) var(--sd-ease-glass);
     overflow: hidden;
     min-height: 0;
 }
@@ -56,8 +56,9 @@
 
 .sidebar-head .build {
     font-size: 0.65rem;
-    color: var(--sd-fg-4);
+    color: var(--tf-accent-bright);
     font-variant-numeric: tabular-nums;
+    font-weight: var(--sd-fw-semibold);
 }
 
 .sidebar-collapse {
@@ -254,7 +255,7 @@
     width: 0.85rem;
     height: 0.85rem;
     color: var(--sd-fg-4);
-    transition: transform 0.2s var(--sd-ease-glass);
+    transition: transform var(--sd-dur-fast) var(--sd-ease-glass);
     flex-shrink: 0;
     transform: rotate(-90deg);
 }
@@ -461,7 +462,7 @@
         justify-content: center;
         flex-shrink: 0;
         border: 1px solid rgba(255, 255, 255, 0.2);
-        transition: background 0.3s ease;
+        transition: background var(--sd-dur-base) var(--sd-ease-glass);
     }
 
     .mobile-dl-icon.done {
@@ -547,6 +548,11 @@
 
     .side-link.mobile-nav span {
         display: none !important;
+    }
+
+    /* Hide nav when virtual keyboard is open */
+    .sidebar.keyboard-open {
+        display: none;
     }
 
     /* Active indicator: teal text + subtle bg, no left bar */
