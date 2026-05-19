@@ -1,6 +1,9 @@
-import { test, describe } from 'node:test';
+import { test, describe, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { MetadataService } from '../services/MetadataService.js';
+
+const realFetch = globalThis.fetch;
+afterEach(() => { globalThis.fetch = realFetch; });
 
 const svc = new MetadataService();
 
@@ -136,5 +139,80 @@ describe('MetadataService.enrich', () => {
     svc.cache.set(`${key}|cached song`, val);
     const result = await svc.enrich(key, 'Cached Song');
     assert.deepEqual(result, val);
+  });
+
+  test('returns enriched data from MusicBrainz on successful fetch', async () => {
+    const freshSvc = new MetadataService();
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => makeData([
+        makeRelease({ title: 'Live Album', date: '2022-05-01' }),
+      ]),
+    });
+    const result = await freshSvc.enrich('Some Artist', 'Network Song');
+    assert.equal(result.album, 'Live Album');
+    assert.equal(result.year, '2022');
+  });
+
+  test('caches result after successful MusicBrainz fetch', async () => {
+    const freshSvc = new MetadataService();
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => makeData([makeRelease({ title: 'Cached Net Album', date: '2023-01-01' })]),
+    });
+    await freshSvc.enrich('Cache Artist', 'Cache Song');
+    // Second call — fetch will be restored to real, so if it hits network again it would fail
+    globalThis.fetch = async () => { throw new Error('Should not reach network on second call'); };
+    const result = await freshSvc.enrich('Cache Artist', 'Cache Song');
+    assert.equal(result.album, 'Cached Net Album');
+  });
+
+  test('returns fallback when MusicBrainz API returns non-ok status', async () => {
+    const freshSvc = new MetadataService();
+    globalThis.fetch = async () => ({ ok: false, status: 503, json: async () => ({}) });
+    const result = await freshSvc.enrich('Bad Artist', 'Bad Song');
+    assert.deepEqual(result, { album: 'YouTube Music' });
+  });
+
+  test('returns fallback on network error', async () => {
+    const freshSvc = new MetadataService();
+    globalThis.fetch = async () => { throw new Error('Network failure'); };
+    const result = await freshSvc.enrich('Artist', 'Song');
+    assert.deepEqual(result, { album: 'YouTube Music' });
+  });
+});
+
+describe('MetadataService.parseMusicBrainz — genre extraction', () => {
+  test('extracts genre from curated genres array when present', () => {
+    const data = {
+      recordings: [{
+        'first-release-date': '2020',
+        genres: [{ name: 'rock', count: 5 }, { name: 'alternative', count: 2 }],
+        tags: [{ name: 'some-tag', count: 1 }],
+        releases: [makeRelease({ title: 'Genre Album' })],
+      }],
+    };
+    const result = svc.parseMusicBrainz(data, 'Any Song');
+    assert.equal(result.genre, 'rock');
+  });
+
+  test('falls back to tags when genres array is absent', () => {
+    const data = {
+      recordings: [{
+        'first-release-date': '2020',
+        tags: [{ name: 'post-hardcore', count: 3 }],
+        releases: [makeRelease({ title: 'Tag Album' })],
+      }],
+    };
+    const result = svc.parseMusicBrainz(data, 'Any Song');
+    assert.equal(result.genre, 'post-hardcore');
+  });
+
+  test('genre is undefined when neither genres nor tags are present', () => {
+    const data = makeData([makeRelease({ title: 'No Genre Album' })]);
+    const result = svc.parseMusicBrainz(data, 'Any Song');
+    assert.equal(result.genre, undefined);
   });
 });
