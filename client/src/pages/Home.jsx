@@ -59,7 +59,7 @@ const Home = () => {
     useEffect(() => {
         document.title = 'Home — DownTune';
         fetchLibrary();
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     useAutoRefresh(fetchLibrary);
 
