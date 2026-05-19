@@ -29,9 +29,10 @@ import { SpotifyProvider } from './providers/SpotifyProvider.js';
 import { YoutubeMusicProvider } from './providers/YoutubeMusicProvider.js';
 import { DeezerProvider } from './providers/DeezerProvider.js';
 import { metadataService } from './services/MetadataService.js';
+import { lyricsService } from './services/LyricsService.js';
 
 const app = express();
-const port = 3001;
+const port = parseInt(process.env.PORT || '3001', 10);
 
 // Allow CORS from the configured origin (set ALLOWED_ORIGIN in .env for production)
 const corsOrigin = process.env.ALLOWED_ORIGIN || '*';
@@ -312,7 +313,7 @@ app.post('/download-song', async (req, res) => {
     }
 
     // Final enrichment fallback if album is generic or other info is missing
-    let releaseDate = year; // Default to year
+    let releaseDate = year;
     if (albumName === 'YouTube Music' || !year || !trackNumber || !genre) {
         const enriched = await metadataService.enrich(artistName, trackName);
         if (albumName === 'YouTube Music' && enriched.album !== 'YouTube Music') {
@@ -322,6 +323,35 @@ app.post('/download-song', async (req, res) => {
         if (!trackNumber) trackNumber = enriched.trackNumber;
         if (!genre) genre = enriched.genre;
         if (enriched.releaseDate) releaseDate = enriched.releaseDate;
+    }
+
+    // Deezer genre fallback — search by artist+track, then hit the album endpoint
+    if (!genre) {
+        try {
+            const q = encodeURIComponent(`artist:"${artistName}" track:"${trackName}"`);
+            const searchRes = await fetch(`https://api.deezer.com/search?q=${q}&limit=1`);
+            if (searchRes.ok) {
+                const searchData = await searchRes.json();
+                const albumId = searchData.data?.[0]?.album?.id;
+                if (albumId) {
+                    const albumRes = await fetch(`https://api.deezer.com/album/${albumId}`);
+                    if (albumRes.ok) {
+                        const albumData = await albumRes.json();
+                        const firstGenre = albumData.genres?.data?.[0]?.name;
+                        if (firstGenre) {
+                            genre = firstGenre;
+                            info(`Deezer genre for "${trackName}": ${genre}`);
+                        } else {
+                            warning(`Deezer: no genre returned for album ${albumId}`);
+                        }
+                    }
+                } else {
+                    warning(`Deezer: no search result found for "${trackName}" by "${artistName}"`);
+                }
+            }
+        } catch (err) {
+            warning(`Deezer genre lookup failed: ${err.message}`);
+        }
     }
 
     const safeArtistName = sanitizeFilename(artistName);
@@ -352,7 +382,11 @@ app.post('/download-song', async (req, res) => {
         '--output', outputFilePath,
       ];
 
-      await runYtDlp(downloadArgs);
+      // Fetch lyrics in parallel with the download — both are network-bound
+      const [, lyrics] = await Promise.all([
+        runYtDlp(downloadArgs),
+        lyricsService.fetch(artistName, trackName, albumName),
+      ]);
 
       // Verify file exists before proceeding
       try {
@@ -361,9 +395,6 @@ app.post('/download-song', async (req, res) => {
         throw new Error(`File was not created at ${outputFilePath}`);
       }
 
-      info('Injecting metadata...');
-
-      // Inject metadata
       const tags = {
         title: trackName,
         artist: artistName,
@@ -372,9 +403,24 @@ app.post('/download-song', async (req, res) => {
         trackNumber: String(trackNumber || ''),
         genre: String(genre || ''),
         releaseTime: String(releaseDate || ''),
-        date: String(releaseDate || year || ''), // Add date for TDRC compatibility
-        originalReleaseTime: String(year || '') // Add original release time
+        date: String(releaseDate || year || ''),
+        originalReleaseTime: String(year || ''),
       };
+
+      if (lyrics) {
+        tags.unsynchronisedLyrics = { language: 'eng', text: lyrics };
+      }
+
+      info(`Metadata summary for "${trackName}":
+  title       : ${tags.title || '—'}
+  artist      : ${tags.artist || '—'}
+  album       : ${tags.album || '—'}
+  year        : ${tags.year || '—'}
+  releaseTime : ${tags.releaseTime || '—'}
+  trackNumber : ${tags.trackNumber || '—'}
+  genre       : ${tags.genre || '— (not found)'}
+  artwork     : ${albumArtUrl ? 'yes' : '— (not found)'}
+  lyrics      : ${lyrics ? `yes (${lyrics.length} chars)` : '— (not found)'}`);
 
       if (albumArtUrl) {
         try {
@@ -396,7 +442,7 @@ app.post('/download-song', async (req, res) => {
       }
 
       await NodeID3.Promise.write(tags, outputFilePath);
-      info('ID3 tags written successfully.');
+      info(`ID3 tags written for "${trackName}"`);
 
       info(`Completed download: ${outputFilePath}`);
       res.json({ message: 'Song downloaded and converted successfully', filePath: outputFilePath });
@@ -550,10 +596,14 @@ app.get('/api/files/:id/art', async (req, res) => {
 
 app.put('/api/files/:id/metadata', async (req, res) => {
     const { id } = req.params;
-    const { title, artist, album, trackNumber, year, releaseTime, artworkUrl } = req.body;
+    const { title, artist, album, trackNumber, discNumber, year, releaseTime, artworkUrl, genre, comment, lyrics } = req.body;
     try {
         info(`Updating metadata for song ID: ${id}`);
         const tags = { title, artist, album, trackNumber, year, releaseTime };
+        if (discNumber !== undefined) tags.partOfSet = discNumber ? String(discNumber) : null;
+        if (genre !== undefined) tags.genre = genre || null;
+        if (comment !== undefined) tags.comment = comment ? { language: 'eng', text: comment } : null;
+        if (lyrics !== undefined) tags.unsynchronisedLyrics = lyrics ? { language: 'eng', text: lyrics } : null;
 
         if (artworkUrl) {
             try {
@@ -664,12 +714,395 @@ app.delete('/api/files/:id', async (req, res) => {
   }
 });
 
+// Shared canvas background for dev pages (grid + bus animation)
+const DEV_BG_CSS = `
+  #bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+`;
+
+const DEV_BG_HTML = `<canvas id="bg"></canvas>`;
+
+const DEV_BG_JS = `
+<script>
+(function() {
+  const canvas = document.getElementById('bg');
+  const ctx = canvas.getContext('2d');
+  const GRID = 40;
+  const R = 20, G = 184, B = 166;
+  const teal = (a) => 'rgba(' + R + ',' + G + ',' + B + ',' + a + ')';
+  const MAX = 22;
+  const BRANCH_CHANCE = 0.13;
+  const DX = [1, -1, 0, 0];
+  const DY = [0,  0, 1,-1];
+  let pulses = [], W, H, cx, cy, last = 0;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    cx = Math.round(W / 2 / GRID) * GRID;
+    cy = Math.round(H / 2 / GRID) * GRID;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function snap(v) { return Math.round(v / GRID) * GRID; }
+
+  function add(x, y, dir, depth) {
+    if (pulses.length >= MAX || depth > 4) return;
+    pulses.push({
+      x, y, dir, depth,
+      speed: 1.6 + Math.random() * 2.2,
+      tail:  40  + Math.random() * 70,
+      alpha: Math.max(0.15, 0.75 - depth * 0.15),
+      cross: dir < 2 ? x : y,
+      done:  false
+    });
+  }
+
+  function spawn() {
+    const s = 3;
+    const ox = snap(cx + (Math.floor(Math.random() * (s*2+1)) - s) * GRID);
+    const oy = snap(cy + (Math.floor(Math.random() * (s*2+1)) - s) * GRID);
+    add(ox, oy, Math.floor(Math.random() * 4), 0);
+  }
+
+  function drawGrid() {
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = teal(0.055);
+    for (let x = 0; x <= W; x += GRID) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y <= H; y += GRID) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+  }
+
+  function drawPulse(p) {
+    const hx = p.x, hy = p.y;
+    const tx = hx - DX[p.dir] * p.tail;
+    const ty = hy - DY[p.dir] * p.tail;
+    const g = ctx.createLinearGradient(tx, ty, hx, hy);
+    g.addColorStop(0,   teal(0));
+    g.addColorStop(0.5, teal(p.alpha * 0.45));
+    g.addColorStop(1,   teal(p.alpha));
+    ctx.strokeStyle = g;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke();
+    // head glow dot
+    const gd = ctx.createRadialGradient(hx, hy, 0, hx, hy, 5);
+    gd.addColorStop(0, teal(p.alpha));
+    gd.addColorStop(1, teal(0));
+    ctx.fillStyle = gd;
+    ctx.beginPath(); ctx.arc(hx, hy, 5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function frame(ts) {
+    ctx.clearRect(0, 0, W, H);
+    drawGrid();
+
+    if (ts - last > 550) { spawn(); last = ts; }
+
+    const branch = [];
+    for (const p of pulses) {
+      p.x += DX[p.dir] * p.speed;
+      p.y += DY[p.dir] * p.speed;
+      if (p.x > W + p.tail || p.x < -p.tail || p.y > H + p.tail || p.y < -p.tail) {
+        p.done = true; continue;
+      }
+      const cv = p.dir < 2 ? p.x : p.y;
+      const sn = snap(cv);
+      if (Math.abs(sn - p.cross) >= GRID) {
+        p.cross = sn;
+        if (Math.random() < BRANCH_CHANCE) {
+          const bdir = p.dir < 2 ? (Math.random() > .5 ? 2 : 3) : (Math.random() > .5 ? 0 : 1);
+          branch.push([snap(p.x), snap(p.y), bdir, p.depth + 1]);
+        }
+      }
+      drawPulse(p);
+    }
+
+    pulses = pulses.filter(p => !p.done);
+    for (const b of branch) add(...b);
+    requestAnimationFrame(frame);
+  }
+
+  for (let i = 0; i < 6; i++) spawn();
+  requestAnimationFrame(frame);
+})();
+</script>`;
+
 const clientDist = path.join(__dirname, '../client/dist');
-if (existsSync(clientDist)) {
+if (process.env.NODE_ENV !== 'development' && existsSync(clientDist)) {
   app.use(express.static(clientDist));
   app.get('/{*splat}', (req, res) => res.sendFile(path.join(clientDist, 'index.html')));
   info(`Serving client from ${clientDist}`);
+} else {
+  app.get('/', (req, res) => {
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DownTune — Backend</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --tf-accent: #14b8a6;
+      --sd-glass-05: rgba(255,255,255,0.05);
+      --sd-glass-10: rgba(255,255,255,0.10);
+      --sd-glass-15: rgba(255,255,255,0.15);
+      --sd-glass-border: rgba(255,255,255,0.20);
+      --sd-glass-border-soft: rgba(255,255,255,0.10);
+      --sd-fg-1: rgba(255,255,255,1);
+      --sd-fg-3: rgba(255,255,255,0.8);
+      --sd-fg-4: rgba(255,255,255,0.6);
+      --sd-shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
+      --sd-blur-lg: 18px;
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    html, body { height: 100%; }
+
+    body {
+      font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+      color: var(--sd-fg-1);
+      background-color: #080c14;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    ${DEV_BG_CSS}
+
+    .card {
+      position: relative;
+      z-index: 1;
+      background: var(--sd-glass-05);
+      backdrop-filter: blur(var(--sd-blur-lg));
+      border: 1px solid var(--sd-glass-border-soft);
+      border-radius: 2rem;
+      box-shadow: var(--sd-shadow-lg);
+      padding: 2rem 2.5rem;
+      max-width: 440px;
+      width: calc(100% - 2rem);
+      animation: fadeInUp 0.35s ease forwards;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+      margin-bottom: 0.2rem;
+    }
+
+    .accent { color: var(--tf-accent); }
+
+    .sub {
+      font-size: 0.85rem;
+      color: var(--sd-fg-4);
+      margin-bottom: 1.75rem;
+    }
+
+    .rows { display: flex; flex-direction: column; gap: 0; }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid var(--sd-glass-border-soft);
+      font-size: 0.9rem;
+    }
+    .row:last-child { border-bottom: none; }
+
+    .label { color: var(--sd-fg-4); }
+
+    .value {
+      color: var(--tf-accent);
+      font-weight: 600;
+    }
+
+    .pill {
+      background: var(--sd-glass-10);
+      border: 1px solid var(--sd-glass-border);
+      border-radius: 9999px;
+      padding: 0.2rem 0.75rem;
+      font-size: 0.8rem;
+      color: var(--sd-fg-3);
+    }
+
+    a.pill {
+      color: #23a6d5;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    a.pill:hover { background: var(--sd-glass-15); }
+
+    .footer {
+      margin-top: 1.5rem;
+      font-size: 0.78rem;
+      color: var(--sd-fg-4);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  ${DEV_BG_HTML}
+  <div class="card">
+    <h1>Down<span class="accent">Tune</span></h1>
+    <p class="sub">Backend API — development mode</p>
+    <div class="rows">
+      <div class="row">
+        <span class="label">Status</span>
+        <span class="pill value">running</span>
+      </div>
+      <div class="row">
+        <span class="label">Port</span>
+        <span class="pill">${port}</span>
+      </div>
+      <div class="row">
+        <span class="label">API base</span>
+        <span class="pill">/api/*</span>
+      </div>
+      <div class="row">
+        <span class="label">Frontend</span>
+        <a class="pill" href="http://localhost:5173">localhost:5173</a>
+      </div>
+    </div>
+  </div>
+  ${DEV_BG_JS}
+</body>
+</html>`);
+  });
 }
+
+app.use((req, res) => {
+  if (req.accepts('html')) {
+    res.status(404).send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>404 — DownTune</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --tf-accent: #14b8a6;
+      --sd-glass-05: rgba(255,255,255,0.05);
+      --sd-glass-10: rgba(255,255,255,0.10);
+      --sd-glass-15: rgba(255,255,255,0.15);
+      --sd-glass-border: rgba(255,255,255,0.20);
+      --sd-glass-border-soft: rgba(255,255,255,0.10);
+      --sd-fg-1: rgba(255,255,255,1);
+      --sd-fg-3: rgba(255,255,255,0.8);
+      --sd-fg-4: rgba(255,255,255,0.6);
+      --sd-shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
+      --sd-blur-lg: 18px;
+      --tf-accent: #14b8a6;
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    html, body { height: 100%; }
+
+    body {
+      font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+      color: var(--sd-fg-1);
+      background-color: #080c14;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    ${DEV_BG_CSS}
+
+    .card {
+      position: relative;
+      z-index: 1;
+      background: var(--sd-glass-05);
+      backdrop-filter: blur(var(--sd-blur-lg));
+      border: 1px solid var(--sd-glass-border-soft);
+      border-radius: 2rem;
+      box-shadow: var(--sd-shadow-lg);
+      padding: 2rem 2.5rem;
+      max-width: 440px;
+      width: calc(100% - 2rem);
+      animation: fadeInUp 0.35s ease forwards;
+      text-align: center;
+    }
+
+    .code {
+      font-size: 4rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+      margin-bottom: 0.5rem;
+    }
+
+    .accent { color: var(--tf-accent); }
+
+    h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--sd-fg-3);
+      margin-bottom: 0.5rem;
+    }
+
+    .path {
+      display: inline-block;
+      background: var(--sd-glass-10);
+      border: 1px solid var(--sd-glass-border);
+      border-radius: 9999px;
+      padding: 0.2rem 0.85rem;
+      font-size: 0.85rem;
+      font-family: monospace;
+      color: var(--sd-fg-3);
+      margin-bottom: 1.5rem;
+    }
+
+    a.pill {
+      display: inline-block;
+      background: var(--sd-glass-10);
+      border: 1px solid var(--sd-glass-border);
+      border-radius: 9999px;
+      padding: 0.35rem 1rem;
+      font-size: 0.85rem;
+      color: #23a6d5;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    a.pill:hover { background: var(--sd-glass-15); }
+  </style>
+</head>
+<body>
+  ${DEV_BG_HTML}
+  <div class="card">
+    <div class="code">4<span class="accent">0</span>4</div>
+    <h2>Route not found</h2>
+    <div class="path">${req.method} ${req.path}</div><br>
+    <a class="pill" href="/">← Back to API status</a>
+  </div>
+  ${DEV_BG_JS}
+</body>
+</html>`);
+  } else {
+    res.status(404).json({ error: 'Not found', path: req.path });
+  }
+});
 
 app.listen(port, () => {
   info(`Backend listening at http://localhost:${port}`);
