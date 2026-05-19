@@ -67,7 +67,7 @@ const Results = () => {
         if (location.state?.query && !location.state?.results) {
             doSearch(location.state.query);
         }
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (location.state?.results) {
