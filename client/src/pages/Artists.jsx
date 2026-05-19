@@ -18,7 +18,7 @@ const Artists = () => {
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
     const [animationsDone, setAnimationsDone] = useState(instant);
     const [songLayout, setSongLayout] = useState(() => localStorage.getItem('artists_layout') || 'grid');
-    const layoutClicked = useRef(false);
+    const [layoutClicked, setLayoutClicked] = useState(false);
     const animationTimer = useRef(null);
     const headerRef = useRef(null);
     const navigate = useNavigate();
@@ -48,10 +48,10 @@ const Artists = () => {
         applySongLayout(songLayout);
         fetchSongs(true);
         return () => { if (animationTimer.current) clearTimeout(animationTimer.current); };
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const toggleLayout = () => {
-        layoutClicked.current = true;
+        setLayoutClicked(true);
         const next = songLayout === 'list' ? 'grid' : 'list';
         setSongLayout(next);
         applySongLayout(next);
@@ -170,7 +170,7 @@ const Artists = () => {
                         onClick={toggleLayout}
                         title={songLayout === 'grid' ? 'Switch to list' : 'Switch to grid'}
                     >
-                        <span key={songLayout} className={layoutClicked.current ? 'layout-icon-anim' : ''}>
+                        <span key={songLayout} className={layoutClicked ? 'layout-icon-anim' : ''}>
                             {songLayout === 'grid' ? <FiList size={15} /> : <FiGrid size={15} />}
                         </span>
                     </button>
