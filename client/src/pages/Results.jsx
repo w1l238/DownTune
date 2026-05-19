@@ -1,16 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { FiDownload, FiRefreshCw, FiCheck, FiMusic, FiSearch, FiX, FiClock } from 'react-icons/fi';
+import { FiDownload, FiRefreshCw, FiCheck, FiMusic, FiSearch, FiX, FiClock, FiSettings } from 'react-icons/fi';
 import { useDownloads } from '../contexts/DownloadContext';
 import { API_BASE_URL } from '../config';
+import MobileSearchBar from '../components/MobileSearchBar';
 import './css/Results.css';
 
 const HISTORY_KEY = 'search_history';
 const SESSION_KEY = 'results_session';
-const MAX_HISTORY = 12;
+const MAX_HISTORY = 50;
+const HISTORY_LIMIT_KEY = 'history_display_limit';
 
 const loadHistory = () => {
     try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
+};
+
+const loadHistoryLimit = () => {
+    const v = parseInt(localStorage.getItem(HISTORY_LIMIT_KEY) || '20', 10);
+    return Math.min(Math.max(v, 5), 50);
 };
 
 const saveHistory = (query) => {
@@ -23,6 +30,7 @@ const Results = () => {
     const { addDownload, updateDownload, showNotification } = useDownloads();
     const inputRef = useRef(null);
     const searchBarRef = useRef(null);
+    const prefsRef = useRef(null);
 
     const getInitialState = () => {
         // Navigated with pre-fetched results (e.g. sidebar search)
@@ -48,6 +56,9 @@ const Results = () => {
     const [downloading, setDownloading] = useState({});
     const [library, setLibrary] = useState([]);
     const [history, setHistory] = useState(loadHistory);
+    const [historyLimit, setHistoryLimit] = useState(loadHistoryLimit);
+    const [showHistoryPrefs, setShowHistoryPrefs] = useState(false);
+    const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
 
     useEffect(() => {
         document.title = 'Search — DownTune';
@@ -87,6 +98,22 @@ const Results = () => {
         canvas.addEventListener('scroll', onScroll, { passive: true });
         return () => canvas.removeEventListener('scroll', onScroll);
     }, []);
+
+    useEffect(() => {
+        const onResize = () => setWindowWidth(window.innerWidth);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+
+    useEffect(() => {
+        if (!showHistoryPrefs) return;
+        const onClickOutside = (e) => {
+            if (prefsRef.current && !prefsRef.current.contains(e.target))
+                setShowHistoryPrefs(false);
+        };
+        document.addEventListener('mousedown', onClickOutside);
+        return () => document.removeEventListener('mousedown', onClickOutside);
+    }, [showHistoryPrefs]);
 
     const fetchLibrary = async () => {
         try {
@@ -208,6 +235,8 @@ const Results = () => {
     };
 
     const hasResults = results.items.length > 0;
+    const isMobile = windowWidth <= 768;
+    const displayHistory = history.slice(0, isMobile ? 10 : historyLimit);
 
     return (
         <div className="results-wrap">
@@ -237,9 +266,38 @@ const Results = () => {
                 <div className="results-history">
                     <div className="results-history-label">
                         <FiClock size={12} /> Recent searches
+                        <div className="results-history-prefs-wrap" ref={prefsRef}>
+                            <button
+                                type="button"
+                                className="results-history-prefs-btn"
+                                onClick={() => setShowHistoryPrefs(p => !p)}
+                                title="History preferences"
+                            >
+                                <FiSettings size={11} />
+                            </button>
+                            {showHistoryPrefs && (
+                                <div className="results-history-prefs-popover">
+                                    <span className="prefs-popover-label">
+                                        Show up to <strong>{historyLimit}</strong> recent searches
+                                    </span>
+                                    <input
+                                        type="range"
+                                        min={5}
+                                        max={50}
+                                        step={5}
+                                        value={historyLimit}
+                                        onChange={e => {
+                                            const v = parseInt(e.target.value, 10);
+                                            setHistoryLimit(v);
+                                            localStorage.setItem(HISTORY_LIMIT_KEY, String(v));
+                                        }}
+                                    />
+                                </div>
+                            )}
+                        </div>
                     </div>
                     <div className="results-history-chips">
-                        {history.map(item => (
+                        {displayHistory.map(item => (
                             <div key={item} className="results-history-chip" onClick={() => { setQuery(item); doSearch(item); }}>
                                 <span>{item}</span>
                                 <button
@@ -285,11 +343,11 @@ const Results = () => {
                                     disabled={isDownloading || downloaded}
                                 >
                                     {isDownloading ? (
-                                        <><FiRefreshCw className="spin" size={14} /> Downloading</>
+                                        <><FiRefreshCw className="spin" size={14} /><span className="dl-btn-label"> Downloading</span></>
                                     ) : downloaded ? (
-                                        <><FiCheck size={14} /> Downloaded</>
+                                        <><FiCheck size={14} /><span className="dl-btn-label"> Downloaded</span></>
                                     ) : (
-                                        <><FiDownload size={14} /> Download</>
+                                        <><FiDownload size={14} /><span className="dl-btn-label"> Download</span></>
                                     )}
                                 </button>
                             </div>
@@ -310,6 +368,13 @@ const Results = () => {
                     </button>
                 </div>
             )}
+            <MobileSearchBar
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onSubmit={handleSubmit}
+                placeholder="Search songs, artists, albums…"
+                buttonLabel="Search"
+            />
         </div>
     );
 };

@@ -108,6 +108,61 @@
     padding: 0 0.25rem;
 }
 
+.results-history-prefs-wrap {
+    margin-left: auto;
+    position: relative;
+}
+
+.results-history-prefs-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid var(--sd-glass-border-soft);
+    color: var(--sd-fg-4);
+    cursor: pointer;
+    padding: 0;
+    transition: all var(--sd-dur-fast) var(--sd-ease-glass);
+}
+
+.results-history-prefs-btn:hover {
+    background: var(--sd-glass-10);
+    color: white;
+}
+
+.results-history-prefs-popover {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    background: var(--sd-glass-20);
+    backdrop-filter: blur(var(--sd-blur-lg));
+    border: 1px solid var(--sd-glass-border);
+    border-radius: var(--sd-radius-lg);
+    padding: 0.75rem 1rem;
+    min-width: 210px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    box-shadow: var(--sd-shadow-md);
+}
+
+.prefs-popover-label {
+    font-size: 0.78rem;
+    color: var(--sd-fg-3);
+    font-weight: var(--sd-fw-semibold);
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.results-history-prefs-popover input[type="range"] {
+    width: 100%;
+    accent-color: var(--tf-accent-bright);
+}
+
 .results-history-chips {
     display: flex;
     flex-wrap: wrap;
@@ -170,7 +225,7 @@
     background: var(--sd-glass-10);
     backdrop-filter: blur(var(--sd-blur-md));
     border: 1px solid var(--sd-glass-border-soft);
-    border-radius: var(--sd-radius-lg);
+    border-radius: var(--sd-radius-xl);
     transition: all var(--sd-dur-fast) var(--sd-ease-glass);
 }
 
@@ -294,59 +349,86 @@
 }
 
 @media (max-width: 768px) {
-    /* Scroll-hide animation — matches Library/Albums/Artists pattern */
+    /* Search moves to bottom MobileSearchBar on mobile */
     .results-search {
-        position: sticky;
-        top: 0;
-        z-index: 101;
-        transition: transform 0.3s ease, opacity 0.3s ease;
-        margin-bottom: 0.75rem;
-    }
-
-    .results-search.header-hidden {
-        transform: translateY(calc(-100% - 0.75rem));
-        opacity: 0;
-        pointer-events: none;
-    }
-
-    .results-search input {
-        padding: 0.55rem 0;
-        font-size: 0.95rem;
-    }
-
-    /* Hide the Search button — pressing Enter submits */
-    .results-search-btn {
         display: none;
     }
 
-    /* Track rows — good touch targets */
+    /* Track rows */
     .track-row {
-        gap: 0.75rem;
-        padding: 0.8rem 0.85rem;
-        min-height: 56px;
+        gap: 0.85rem;
+        padding: 0.95rem 1rem;
+        min-height: 68px;
     }
 
     .track-art {
-        width: 46px;
-        height: 46px;
+        width: 56px;
+        height: 56px;
+    }
+
+    .track-name {
+        font-size: 1.05rem;
+    }
+
+    .track-meta {
+        font-size: 0.9rem;
     }
 
     .track-album {
         display: none;
     }
 
-    .track-dl-btn {
-        padding: 0.5rem 0.75rem;
-        font-size: 0.8rem;
+    /* Download button — icon only, no text */
+    .dl-btn-label {
+        display: none;
     }
 
-    /* History chips — wrap more naturally */
+    .track-dl-btn {
+        padding: 0.75rem 0.9rem;
+        font-size: 0.9rem;
+    }
+
+    .track-dl-btn svg {
+        width: 1.3rem;
+        height: 1.3rem;
+    }
+
+    /* Prev / Next pagination buttons */
+    .results-pagination button {
+        padding: 0.85rem 2rem;
+        font-size: 1rem;
+    }
+
+    /* Hide desktop-only prefs button */
+    .results-history-prefs-btn {
+        display: none;
+    }
+
+    /* History — fixed above the mobile search bar */
+    .results-history {
+        position: fixed;
+        bottom: calc(68px + env(safe-area-inset-bottom, 0px) + 1.25rem + 62px + 0.75rem);
+        left: 0.75rem;
+        right: 0.75rem;
+        z-index: 180;
+    }
+
+    .results-history-label {
+        font-size: 0.75rem;
+        margin-bottom: 0.35rem;
+    }
+
     .results-history-chips {
-        gap: 0.35rem;
+        gap: 0.5rem;
     }
 
     .results-history-chip {
-        font-size: 0.8rem;
-        padding: 0.35rem 0.35rem 0.35rem 0.7rem;
+        font-size: 0.95rem;
+        padding: 0.6rem 0.6rem 0.6rem 1rem;
+    }
+
+    .chip-remove {
+        width: 1.5rem;
+        height: 1.5rem;
     }
 }
