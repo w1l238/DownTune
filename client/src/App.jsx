@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
 import { DownloadProvider, useDownloads } from './contexts/DownloadContext';
+import { applyAccent, applySpeed, applyDensity, applySongLayout } from './utils/appearance';
 import Sidebar from './components/Sidebar';
 import QueueDock from './components/QueueDock';
 import Popup from './components/Popup';
@@ -65,6 +66,10 @@ function Shell() {
         r.setProperty('--sd-blur-md', `${blurBase}px`);
         r.setProperty('--sd-blur-lg', `${blurBase * 1.5}px`);
         r.setProperty('--sd-blur-xl', `${blurBase * 2}px`);
+
+        applyAccent(localStorage.getItem('app_accent') || 'teal');
+        applySpeed(localStorage.getItem('app_animation_speed') || 'normal');
+        applyDensity(localStorage.getItem('app_density') || 'normal');
     }, []);
 
     return (
