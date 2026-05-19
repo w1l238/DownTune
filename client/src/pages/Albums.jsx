@@ -1,16 +1,22 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { FiSearch, FiHeart } from 'react-icons/fi';
+import { FiSearch, FiHeart, FiGrid, FiList } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { getSpeedOption, applySongLayout } from '../utils/appearance';
+import MobileSearchBar from '../components/MobileSearchBar';
 import './css/Albums.css';
 
 const Albums = () => {
+    const speedOpt = getSpeedOption(localStorage.getItem('app_animation_speed') || 'normal');
+    const instant = speedOpt.staggerDelay === 0;
     const [songs, setSongs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-    const [animationsDone, setAnimationsDone] = useState(false);
+    const [animationsDone, setAnimationsDone] = useState(instant);
+    const [songLayout, setSongLayout] = useState(() => localStorage.getItem('albums_layout') || 'grid');
+    const layoutClicked = useRef(false);
     const animationTimer = useRef(null);
     const headerRef = useRef(null);
     const navigate = useNavigate();
@@ -22,7 +28,9 @@ const Albums = () => {
                 setSongs(data);
                 if (initial) {
                     setLoading(false);
-                    animationTimer.current = setTimeout(() => setAnimationsDone(true), 1500);
+                    if (!instant) {
+                        animationTimer.current = setTimeout(() => setAnimationsDone(true), 1500);
+                    }
                 }
             })
             .catch(() => { if (initial) setLoading(false); });
@@ -30,9 +38,18 @@ const Albums = () => {
 
     useEffect(() => {
         document.title = 'Albums — DownTune';
+        applySongLayout(songLayout);
         fetchSongs(true);
         return () => { if (animationTimer.current) clearTimeout(animationTimer.current); };
     }, []);
+
+    const toggleLayout = () => {
+        layoutClicked.current = true;
+        const next = songLayout === 'list' ? 'grid' : 'list';
+        setSongLayout(next);
+        applySongLayout(next);
+        localStorage.setItem('albums_layout', next);
+    };
 
     useAutoRefresh(fetchSongs);
 
@@ -68,6 +85,13 @@ const Albums = () => {
         return Object.values(map).sort((a, b) => a.name.localeCompare(b.name));
     }, [songs]);
 
+    const formatSize = (bytes) => {
+        if (!bytes) return null;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+        if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+        return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    };
+
     const filtered = useMemo(() => {
         const q = searchQuery.toLowerCase();
         return albums
@@ -92,6 +116,15 @@ const Albums = () => {
                         />
                     </div>
                     <button
+                        className="page-icon-btn"
+                        onClick={toggleLayout}
+                        title={songLayout === 'grid' ? 'Switch to list' : 'Switch to grid'}
+                    >
+                        <span key={songLayout} className={layoutClicked.current ? 'layout-icon-anim' : ''}>
+                            {songLayout === 'grid' ? <FiList size={15} /> : <FiGrid size={15} />}
+                        </span>
+                    </button>
+                    <button
                         className={`page-icon-btn ${showFavoritesOnly ? 'active' : ''}`}
                         onClick={() => setShowFavoritesOnly(f => !f)}
                         title={showFavoritesOnly ? 'Show all' : 'Show favorites only'}
@@ -103,7 +136,11 @@ const Albums = () => {
 
             {filtered.length === 0 ? (
                 <p className="albums-empty">
-                    {songs.length === 0 ? 'No albums in library. Download some songs first.' : 'No albums match your search.'}
+                    {songs.length === 0
+                    ? 'No albums in library. Download some songs first.'
+                    : showFavoritesOnly
+                    ? 'No favorite albums yet.'
+                    : 'No albums match your search.'}
                 </p>
             ) : (
                 <div className="albums-grid">
@@ -111,7 +148,7 @@ const Albums = () => {
                         <div
                             key={`${album.name}__${album.artist}`}
                             className={`albums-card${!animationsDone ? ' fade-in' : ''}`}
-                            style={{ animationDelay: !animationsDone ? `${Math.min(index * 0.04, 0.5)}s` : '0s' }}
+                            style={{ animationDelay: !animationsDone ? `${Math.min(index * speedOpt.staggerDelay, 0.6)}s` : '0s' }}
                             onClick={() => navigate(`/album/${encodeURIComponent(album.name)}`)}
                         >
                             <div className="albums-art">
@@ -121,18 +158,27 @@ const Albums = () => {
                                     onError={(e) => { e.target.style.display = 'none'; }}
                                 />
                             </div>
+                            <div className="albums-card-info">
                             <h3 title={album.name}>{album.name}</h3>
                             <p title={album.artist}>{album.artist}</p>
                             <div className="meta-row">
-                                <span>{album.songs.length} songs</span>
+                                <span>{album.songs.length} songs{(() => { const s = formatSize(album.songs.reduce((acc, s) => acc + (s.size || 0), 0)); return s ? ` · ${s}` : ''; })()}</span>
                                 {album.songs.some(s => s.isLiked) && (
-                                    <FiHeart size={11} fill="white" style={{ opacity: 0.55 }} />
+                                    <FiHeart size={11} fill="currentColor" />
                                 )}
+                            </div>
                             </div>
                         </div>
                     ))}
                 </div>
             )}
+
+            <MobileSearchBar
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search albums…"
+                buttonLabel="Go"
+            />
         </div>
     );
 };
