@@ -106,9 +106,12 @@ export async function refreshLibrary() {
         
         const tasks = files.map(filePath => limit(async () => {
             try {
-                const metadata = await parseFile(filePath);
+                const [metadata, stat] = await Promise.all([
+                    parseFile(filePath),
+                    fs.stat(filePath),
+                ]);
                 const relPath = path.relative(downloadsDir, filePath);
-                
+
                 // Construct a unique ID (relative path is good enough for file system based)
                 const id = Buffer.from(relPath).toString('base64');
 
@@ -119,14 +122,20 @@ export async function refreshLibrary() {
 
                 return {
                     id: id,
-                    path: relPath, // Store relative path for security/portability
+                    path: relPath,
                     title: metadata.common.title || path.basename(filePath, '.mp3'),
                     artist: metadata.common.artist || 'Unknown Artist',
                     album: metadata.common.album || 'Unknown Album',
-                    duration: metadata.format.duration || 0, // Duration in seconds
+                    duration: metadata.format.duration || 0,
                     year: metadata.common.year || null,
                     releaseTime: metadata.common.date || null,
                     trackNumber: metadata.common.track?.no || null,
+                    discNumber: metadata.common.disk?.no || null,
+                    genre: metadata.common.genre?.[0] || null,
+                    comment: metadata.common.comment?.[0]?.text || null,
+                    lyrics: metadata.common.lyrics?.[0]?.text || null,
+                    addedAt: stat.mtime.getTime(),
+                    size: stat.size,
                 };
             } catch (err) {
                 error(`Failed to parse metadata for ${filePath}: ${err.message}`);
@@ -136,7 +145,8 @@ export async function refreshLibrary() {
 
         const results = await Promise.all(tasks);
         const songs = results.filter(song => song !== null);
-        
+        songs.sort((a, b) => a.addedAt - b.addedAt);
+
         libraryCache = songs;
         const duration = ((Date.now() - startTime) / 1000).toFixed(2);
         info(`Library scan complete. Found ${songs.length} songs. Took ${duration}s.`);
