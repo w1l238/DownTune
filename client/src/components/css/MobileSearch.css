@@ -1,0 +1,85 @@
+/* Desktop: hidden entirely */
+.mobile-search-wrap {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    /* Outer row: input bar + pill button side by side */
+    .mobile-search-wrap {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+
+        position: fixed;
+        bottom: calc(68px + env(safe-area-inset-bottom, 0px) + 1.25rem);
+        left: 0.75rem;
+        right: 0.75rem;
+        z-index: 190;
+    }
+
+    /* Input container */
+    .mobile-search-bar {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+
+        background: var(--sd-glass-10);
+        backdrop-filter: blur(var(--sd-blur-md));
+        border: 1px solid var(--sd-glass-border);
+        border-radius: var(--sd-radius-xl);
+        padding: 1rem 1.1rem;
+        box-shadow: var(--sd-shadow-md);
+    }
+
+    .mobile-search-icon {
+        color: var(--sd-fg-4);
+        flex-shrink: 0;
+        width: 1.1rem;
+        height: 1.1rem;
+    }
+
+    .mobile-search-bar input {
+        flex: 1;
+        min-width: 0;
+        background: transparent;
+        border: none;
+        color: white;
+        outline: none;
+        font-family: inherit;
+        font-size: 1.1rem;
+        padding: 0;
+    }
+
+    .mobile-search-bar input::placeholder {
+        color: var(--sd-fg-4);
+    }
+
+    /* Pill button — sits outside the input bar */
+    .mobile-search-pill {
+        flex-shrink: 0;
+        background: var(--tf-accent-soft);
+        border: 1px solid rgba(20, 184, 166, 0.45);
+        color: white;
+        border-radius: var(--sd-radius-xl);
+        padding: 1rem 1.6rem;
+        font-family: inherit;
+        font-size: 1.05rem;
+        font-weight: var(--sd-fw-semibold);
+        cursor: pointer;
+        white-space: nowrap;
+        backdrop-filter: blur(var(--sd-blur-md));
+        box-shadow: var(--sd-shadow-md);
+        transition: background 0.15s var(--sd-ease-glass);
+    }
+
+    .mobile-search-pill:hover {
+        background: var(--tf-accent-hover);
+        backdrop-filter: none;
+    }
+
+    .mobile-search-pill:active {
+        background: var(--tf-accent-hover);
+    }
+}
