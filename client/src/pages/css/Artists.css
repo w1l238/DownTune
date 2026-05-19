@@ -48,6 +48,15 @@
     background: linear-gradient(135deg, var(--tf-accent), var(--tf-ink));
 }
 
+.artist-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+    flex: 1;
+    text-align: center;
+}
+
 .artist-card h3 {
     margin: 0;
     font-size: 1rem;
