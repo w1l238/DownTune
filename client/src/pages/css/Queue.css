@@ -102,7 +102,7 @@
     padding: 0.7rem 0.9rem;
     background: var(--sd-glass-10);
     border: 1px solid var(--sd-glass-border-soft);
-    border-radius: var(--sd-radius-md);
+    border-radius: var(--sd-radius-xl);
     transition: all var(--sd-dur-fast) var(--sd-ease-glass);
     backdrop-filter: blur(var(--sd-blur-md));
 }
@@ -303,10 +303,30 @@
 
     .queue-row {
         padding: 0.85rem 0.75rem;
-        min-height: 56px;
+        min-height: 64px;
     }
 
     .queue-row .progress-cell {
         display: none;
+    }
+
+    /* Hide "Downloaded" / "Failed" pill — icon conveys the status */
+    .queue-status-pill {
+        display: none;
+    }
+
+    /* Larger artwork */
+    .queue-row .mini-art {
+        width: 52px;
+        height: 52px;
+    }
+
+    /* Larger track name and artist */
+    .queue-row .info .t {
+        font-size: 1rem;
+    }
+
+    .queue-row .info .s {
+        font-size: 0.88rem;
     }
 }
