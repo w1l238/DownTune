@@ -4,6 +4,7 @@ import './css/Settings.css';
 import CustomDropdown from '../components/CustomDropdown';
 import { API_BASE_URL } from '../config';
 import { useDownloads } from '../contexts/DownloadContext';
+import { ACCENT_PRESETS, SPEED_OPTIONS, applyAccent, applySpeed, applyDensity } from '../utils/appearance';
 
 const Settings = () => {
     const { showNotification } = useDownloads();
@@ -25,6 +26,9 @@ const Settings = () => {
     const [bgDim, setBgDim] = useState(() => parseFloat(localStorage.getItem('app_bg_dim') || '0'));
     const [albumArtStyle, setAlbumArtStyle] = useState(() => localStorage.getItem('album_art_style') || 'background');
     const [blurBase, setBlurBase] = useState(() => parseFloat(localStorage.getItem('app_blur_base') || '10'));
+    const [accent, setAccent] = useState(() => localStorage.getItem('app_accent') || 'teal');
+    const [animSpeed, setAnimSpeed] = useState(() => localStorage.getItem('app_animation_speed') || 'normal');
+    const [density, setDensity] = useState(() => localStorage.getItem('app_density') || 'normal');
     const [saving, setSaving] = useState(false);
 
     const backgrounds = [
@@ -77,6 +81,10 @@ const Settings = () => {
             localStorage.setItem('app_bg_dim', bgDim);
             localStorage.setItem('album_art_style', albumArtStyle);
             localStorage.setItem('app_blur_base', blurBase);
+            localStorage.setItem('app_accent', accent);
+            localStorage.setItem('app_animation_speed', animSpeed);
+            applyAccent(accent);
+            localStorage.setItem('app_density', density);
         } catch { /* storage quota exceeded — continue with save */ }
 
         const imageUrl = bgImageUrl.trim();
@@ -215,6 +223,60 @@ const Settings = () => {
                     </div>
                     <p className="field-desc">Controls the frosted glass blur across the entire UI. 0 disables it, 10 is the default.</p>
                 </div>
+
+                <div className="field">
+                    <label>Accent Color</label>
+                    <div className="accent-swatches">
+                        {ACCENT_PRESETS.map(p => (
+                            <button
+                                key={p.id}
+                                type="button"
+                                className={`accent-swatch${accent === p.id ? ' active' : ''}`}
+                                style={{ '--swatch-color': p.hex, '--swatch-bright': p.bright }}
+                                title={p.label}
+                                onClick={() => {
+                                    setAccent(p.id);
+                                }}
+                            />
+                        ))}
+                    </div>
+                    <p className="field-desc">Changes buttons, active states, progress bars, and highlights throughout the app.</p>
+                </div>
+
+                <div className="field">
+                    <label>Animation Speed</label>
+                    <div className="art-style-toggle">
+                        {SPEED_OPTIONS.map(o => (
+                            <button
+                                key={o.id}
+                                type="button"
+                                className={`art-style-btn${animSpeed === o.id ? ' active' : ''}`}
+                                onClick={() => { setAnimSpeed(o.id); applySpeed(o.id); }}
+                            >
+                                {o.label}
+                            </button>
+                        ))}
+                    </div>
+                    <p className="field-desc">Controls the speed of all hover and transition animations across the UI.</p>
+                </div>
+
+                <div className="field">
+                    <label>Song Row Density</label>
+                    <div className="art-style-toggle">
+                        {['compact', 'normal', 'roomy'].map(d => (
+                            <button
+                                key={d}
+                                type="button"
+                                className={`art-style-btn${density === d ? ' active' : ''}`}
+                                onClick={() => { setDensity(d); applyDensity(d); }}
+                            >
+                                {d.charAt(0).toUpperCase() + d.slice(1)}
+                            </button>
+                        ))}
+                    </div>
+                    <p className="field-desc">How much vertical space each song row takes in your library and album views.</p>
+                </div>
+
             </div>
 
             {/* Library & Search */}
