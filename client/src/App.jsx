@@ -1,7 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
 import { DownloadProvider, useDownloads } from './contexts/DownloadContext';
-import { applyAccent, applySpeed, applyDensity, applySongLayout } from './utils/appearance';
+import { applyAccent, applySpeed, applyDensity } from './utils/appearance';
 import Sidebar from './components/Sidebar';
 import QueueDock from './components/QueueDock';
 import Popup from './components/Popup';
