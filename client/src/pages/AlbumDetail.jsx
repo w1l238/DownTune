@@ -42,6 +42,12 @@ const AlbumDetail = () => {
         return `${m}:${sec < 10 ? '0' : ''}${sec}`;
     };
 
+    const formatSize = (bytes) => {
+        if (!bytes) return '—';
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
     const toggleFavorite = async (song) => {
         setSongs(prev => prev.map(s => s.id === song.id ? { ...s, isLiked: !s.isLiked } : s));
         try {
@@ -86,8 +92,12 @@ const AlbumDetail = () => {
                     artist: song.artist,
                     album: song.album,
                     trackNumber: song.trackNumber,
+                    discNumber: song.discNumber,
                     year: song.year,
                     releaseTime: song.releaseTime,
+                    genre: song.genre,
+                    comment: song.comment,
+                    lyrics: song.lyrics,
                     artworkUrl: song.artworkUrl,
                 }),
             });
@@ -140,12 +150,17 @@ const AlbumDetail = () => {
 
     return (
         <div className="library-container">
-            <Toaster position="bottom-center" toastOptions={{
+            <Toaster position="top-center" toastOptions={{
                 style: {
-                    background: 'transparent', color: 'white',
-                    backdropFilter: 'blur(15px)', border: '1px solid rgba(255,255,255,0.3)',
-                    borderRadius: '1rem', boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
-                }
+                    background: 'rgba(15, 23, 42, 0.55)',
+                    color: 'white',
+                    backdropFilter: 'blur(var(--sd-blur-lg))',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    borderRadius: '0.85rem',
+                    boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+                },
+                success: { style: { background: 'rgba(20, 184, 166, 0.35)', border: '1px solid rgba(20, 184, 166, 0.4)' } },
+                error:   { style: { background: 'rgba(255, 49, 49, 0.35)',   border: '1px solid rgba(255, 49, 49, 0.4)' } },
             }} />
 
             <button className="section-back" onClick={() => navigate(-1)}>
@@ -169,12 +184,12 @@ const AlbumDetail = () => {
                     <div className="album-actions">
                         <p>{songs.length} songs</p>
                         <button
-                            className={`icon-btn favorite-btn ${songs.every(s => s.isLiked) ? 'active' : ''}`}
-                            style={{ borderRadius: '50%' }}
+                            className={`hero-action-btn like-btn ${songs.every(s => s.isLiked) ? 'active' : ''}`}
                             onClick={likeAlbum}
                             title="Like / Unlike Album"
                         >
-                            <FiHeart fill={songs.every(s => s.isLiked) ? 'white' : 'none'} style={{ display: 'block' }} />
+                            <FiHeart size={14} fill={songs.every(s => s.isLiked) ? 'currentColor' : 'none'} />
+                            <span className="hide-mobile">{songs.every(s => s.isLiked) ? 'Unlike' : 'Like'}</span>
                         </button>
                     </div>
                 </div>
@@ -185,6 +200,7 @@ const AlbumDetail = () => {
                     <div>#</div>
                     <div>Title</div>
                     <div>Duration</div>
+                    <div className="hide-mobile">Size</div>
                     <div />
                 </div>
                 {songs.map((song, index) => (
@@ -195,9 +211,11 @@ const AlbumDetail = () => {
                         <div className="song-row-num">{index + 1}</div>
                         <div className="song-row-title">{song.title}</div>
                         <div className="song-row-duration">{formatDuration(song.duration)}</div>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <div className="song-row-size hide-mobile">{formatSize(song.size)}</div>
+                        {/* Mobile: three-dot menu */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                             <button
-                                className="icon-btn more-btn"
+                                className="icon-btn more-btn show-mobile"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     if (menuOpenId === song.id) {
@@ -217,6 +235,21 @@ const AlbumDetail = () => {
                                 }}
                             >
                                 <FiMoreVertical />
+                            </button>
+                        </div>
+                        {/* Desktop: slide-in pill buttons (position: absolute via CSS) */}
+                        <div className="song-row-actions hide-mobile">
+                            <button className={`row-action-btn like${song.isLiked ? ' active' : ''}`} title={song.isLiked ? 'Unlike' : 'Like'} onClick={(e) => { e.stopPropagation(); toggleFavorite(song); }}>
+                                <FiHeart size={13} fill={song.isLiked ? 'currentColor' : 'none'} />
+                                <span>{song.isLiked ? 'Unlike' : 'Like'}</span>
+                            </button>
+                            <button className="row-action-btn edit" title="Edit" onClick={(e) => { e.stopPropagation(); setEditModal({ show: true, song: { ...song } }); }}>
+                                <FiEdit size={13} />
+                                <span>Edit</span>
+                            </button>
+                            <button className="row-action-btn delete" title="Delete" onClick={(e) => { e.stopPropagation(); setDeleteModal({ show: true, songId: song.id, songTitle: song.title }); }}>
+                                <FiTrash2 size={13} />
+                                <span>Delete</span>
                             </button>
                         </div>
                     </div>
@@ -258,12 +291,12 @@ const AlbumDetail = () => {
             {editModal.show && editModal.song && createPortal(
                 <>
                     <div className="portal-overlay" onClick={() => setEditModal({ show: false, song: null })} />
-                    <div className="modal-backdrop" style={{ zIndex: 2001 }}>
+                    <div className="modal-backdrop" style={{ zIndex: 2001 }} onClick={() => setEditModal({ show: false, song: null })}>
                     <div className="modal-content edit-modal" onClick={e => e.stopPropagation()}>
-                        <button className="modal-close-btn" onClick={() => setEditModal({ show: false, song: null })}>
-                            <FiX />
-                        </button>
-                        <h3>Edit Metadata</h3>
+                        <div className="modal-header">
+                            <span className="modal-title"><FiEdit size={13} /> Edit Metadata</span>
+                            <button className="modal-close-btn" onClick={() => setEditModal({ show: false, song: null })}><FiX size={13} /></button>
+                        </div>
                         <div className="edit-form">
                             <label>Title</label>
                             <input
@@ -297,12 +330,40 @@ const AlbumDetail = () => {
                                 onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, trackNumber: e.target.value } })}
                                 placeholder="e.g. 1"
                             />
+                            <label>Disc Number</label>
+                            <input
+                                type="text"
+                                value={editModal.song.discNumber || ''}
+                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, discNumber: e.target.value } })}
+                                placeholder="e.g. 1"
+                            />
+                            <label>Genre</label>
+                            <input
+                                type="text"
+                                value={editModal.song.genre || ''}
+                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, genre: e.target.value } })}
+                                placeholder="e.g. Electronic"
+                            />
                             <label>Release Date (Detailed)</label>
                             <input
                                 type="text"
                                 value={editModal.song.releaseTime || ''}
                                 onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, releaseTime: e.target.value } })}
                                 placeholder="e.g. 2024-03-12"
+                            />
+                            <label>Comment</label>
+                            <textarea
+                                value={editModal.song.comment || ''}
+                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, comment: e.target.value } })}
+                                placeholder="Optional notes or comment"
+                                rows={2}
+                            />
+                            <label>Lyrics</label>
+                            <textarea
+                                value={editModal.song.lyrics || ''}
+                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, lyrics: e.target.value } })}
+                                placeholder="Paste lyrics here…"
+                                rows={6}
                             />
                             <label>New Artwork URL (Optional)</label>
                             <input
@@ -314,7 +375,7 @@ const AlbumDetail = () => {
                         </div>
                         <div className="modal-actions">
                             <button className="modal-btn cancel" onClick={() => setEditModal({ show: false, song: null })}>Cancel</button>
-                            <button className="modal-btn save" onClick={saveMetadata} style={{ background: '#1db954', color: 'white' }}>Save</button>
+                            <button className="modal-btn save" onClick={saveMetadata}>Save</button>
                         </div>
                     </div>
                 </div>
