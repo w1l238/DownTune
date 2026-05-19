@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { FiMusic, FiDisc, FiUsers, FiDownload, FiSearch, FiX, FiClock, FiSliders } from 'react-icons/fi';
 import { API_BASE_URL } from '../config';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import MobileSearchBar from '../components/MobileSearchBar';
 import './css/Home.css';
 
 const PREFS_KEY = 'home_prefs';
@@ -246,6 +247,13 @@ const Home = () => {
                 </div>,
                 document.body
             )}
+            <MobileSearchBar
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onSubmit={handleSearch}
+                placeholder="Search songs, artists, albums…"
+                buttonLabel="Search"
+            />
         </div>
     );
 };

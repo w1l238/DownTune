@@ -442,25 +442,37 @@
         font-size: 0.95rem;
     }
 
-    /* Hide Search button — keyboard Go submits */
-    .home-search-btn { display: none; }
+    /* Search moves to bottom MobileSearchBar on mobile */
+    .home-search { display: none; }
 
     /* Stats */
-    .home-stats { gap: 0.5rem; }
-    .home-stat { padding: 0.85rem 0.5rem; }
-    .home-stat-val { font-size: 1.3rem; }
+    .home-stats { gap: 0.6rem; }
+    .home-stat { padding: 1.1rem 0.5rem; border-radius: var(--sd-radius-xl); }
+    .home-stat-val { font-size: 1.6rem; }
+    .home-stat-lab { font-size: 0.78rem; }
+    .home-stat-icon svg { width: 1.4rem; height: 1.4rem; }
 
-    /* Album strip — smaller cards */
-    .home-album-card { width: 120px; }
-    .home-album-art { width: 120px; height: 120px; }
-    .home-album-name { font-size: 0.8rem; }
+    /* Album strip — larger cards */
+    .home-album-card { width: 145px; }
+    .home-album-art { width: 145px; height: 145px; }
+    .home-album-name { font-size: 0.9rem; }
+    .home-album-artist { font-size: 0.8rem; }
 
     /* Track rows */
-    .home-track-row { padding: 0.6rem; min-height: 52px; }
+    .home-track-row {
+        padding: 0.85rem 0.9rem;
+        min-height: 64px;
+        border-radius: var(--sd-radius-xl);
+        gap: 0.85rem;
+    }
+    .home-track-art { width: 46px; height: 46px; }
+    .home-track-title { font-size: 1rem; }
+    .home-track-meta { font-size: 0.84rem; }
     .home-track-album { display: none; }
+    .home-track-num { font-size: 0.8rem; }
 
-    /* Prefs button hidden on mobile (prefs still accessible via button) */
-    .home-prefs-btn { width: 1.8rem; height: 1.8rem; }
+    /* Prefs button */
+    .home-prefs-btn { width: 2.2rem; height: 2.2rem; }
 }
 
 /* ── Preferences popup ── */
@@ -469,7 +481,6 @@
     inset: 0;
     background: rgba(0, 0, 0, 0.45);
     backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
     z-index: 2000;
     display: flex;
     align-items: center;
@@ -477,9 +488,8 @@
 }
 
 .home-prefs-modal {
-    background: rgba(20, 24, 36, 0.85);
-    backdrop-filter: blur(var(--sd-blur-lg));
-    border: 1px solid var(--sd-glass-border);
+    background: rgba(42, 42, 42, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: var(--sd-radius-xl);
     box-shadow: var(--sd-shadow-lg);
     width: min(380px, calc(100vw - 2rem));
@@ -500,15 +510,20 @@
 .home-prefs-title {
     display: flex;
     align-items: center;
-    gap: 0.45rem;
-    font-size: 0.88rem;
+    gap: 0.55rem;
+    font-size: 1rem;
     font-weight: var(--sd-fw-bold);
     color: var(--sd-fg-1);
 }
 
+.home-prefs-title svg {
+    width: 17px;
+    height: 17px;
+}
+
 .home-prefs-close {
-    width: 1.7rem;
-    height: 1.7rem;
+    width: 2rem;
+    height: 2rem;
     border-radius: 50%;
     background: var(--sd-glass-10) !important;
     border: 1px solid var(--sd-glass-border-soft) !important;
