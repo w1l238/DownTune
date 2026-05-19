@@ -114,7 +114,7 @@ button:disabled {
 
 .fade-in {
   opacity: 0;
-  animation: fadeInUp 0.5s ease forwards;
+  animation: fadeInUp var(--fade-dur, 0.5s) ease forwards;
 }
 
 /* Dim overlay for background images — sits between body bg and shell content */
