@@ -112,7 +112,7 @@
     border-radius: 6px;
     background: rgba(0, 0, 0, 0.2);
     position: relative;
-    transition: all 0.2s;
+    transition: all var(--sd-dur-fast) var(--sd-ease-glass);
     flex-shrink: 0;
 }
 
@@ -132,6 +132,38 @@
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
 }
+
+/* Accent color swatches */
+.accent-swatches {
+    display: flex;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+}
+
+.accent-swatch {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--swatch-color);
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all var(--sd-dur-fast) var(--sd-ease-glass);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.accent-swatch:hover {
+    transform: scale(1.15);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4), 0 0 0 3px rgba(255,255,255,0.15);
+}
+
+.accent-swatch.active {
+    border-color: white;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4), 0 0 0 3px var(--swatch-color);
+    transform: scale(1.1);
+}
+
 
 /* Art style toggle — mobile only setting, hidden on desktop */
 .field.mobile-only {
@@ -241,7 +273,7 @@
     background: var(--tf-accent-bright);
     cursor: pointer;
     box-shadow: 0 0 0 3px var(--tf-accent-tint);
-    transition: box-shadow 0.15s;
+    transition: box-shadow var(--sd-dur-fast) var(--sd-ease-glass);
 }
 
 .dim-slider::-webkit-slider-thumb:hover {
@@ -317,5 +349,8 @@
     .btn-save {
         align-self: stretch;
         justify-content: center;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        font-size: 1.05rem;
     }
 }
