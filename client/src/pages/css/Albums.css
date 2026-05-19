@@ -1,3 +1,16 @@
+/* ===== Layout toggle icon animation ===== */
+@keyframes layoutIconIn {
+    from { transform: scale(0.4) rotate(-120deg); opacity: 0; }
+    to   { transform: scale(1) rotate(0deg);      opacity: 1; }
+}
+
+.layout-icon-anim {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: layoutIconIn var(--sd-dur-fast) var(--sd-ease-glass) forwards;
+}
+
 /* ===== Shared page header (Albums + Artists) ===== */
 .page-header {
     display: flex;
@@ -36,7 +49,7 @@
     display: flex;
     align-items: center;
     backdrop-filter: blur(5px);
-    transition: background-color 0.2s;
+    transition: background-color var(--sd-dur-fast) var(--sd-ease-glass);
 }
 
 .page-search:focus-within {
@@ -69,7 +82,7 @@
     border-radius: 50%;
     width: 2.4rem;
     height: 2.4rem;
-    transition: background-color 0.2s, transform 0.2s;
+    transition: background-color var(--sd-dur-fast) var(--sd-ease-glass), transform var(--sd-dur-fast) var(--sd-ease-glass);
     flex-shrink: 0;
 }
 
@@ -165,18 +178,109 @@
     text-overflow: ellipsis;
 }
 
+.albums-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+    flex: 1;
+}
+
 .albums-card .meta-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-size: 0.72rem;
     color: var(--sd-fg-4);
+    padding-bottom: 0.25rem;
+    padding-right: 0.25rem;
+}
+
+.albums-card .meta-row svg {
+    width: 0.85rem;
+    height: 0.85rem;
+    color: #ff7a93;
+    opacity: 1;
 }
 
 .albums-empty {
     padding: 3rem 1rem;
     text-align: center;
     color: var(--sd-fg-3);
+}
+
+/* ── List layout for album/artist card grids ─────────────────────── */
+:root[data-song-layout="list"] .albums-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+:root[data-song-layout="list"] .albums-card {
+    flex-direction: row;
+    align-items: center;
+    padding: 0.6rem 0.9rem;
+    gap: 0.9rem;
+    position: relative;
+}
+
+:root[data-song-layout="list"] .albums-card .meta-row svg {
+    position: absolute;
+    right: 0.9rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1.4rem;
+    height: 1.4rem;
+    padding-right: 0.25rem;
+}
+
+:root[data-song-layout="list"] .albums-card:hover {
+    transform: none;
+}
+
+:root[data-song-layout="list"] .albums-art {
+    width: 3rem;
+    height: 3rem;
+    aspect-ratio: 1;
+    flex-shrink: 0;
+    border-radius: 0.5rem;
+}
+
+:root[data-song-layout="list"] .albums-card-info {
+    gap: 0.1rem;
+    padding-right: 1.8rem;
+}
+
+:root[data-song-layout="list"] .artist-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+:root[data-song-layout="list"] .artist-card {
+    flex-direction: row;
+    align-items: center;
+    padding: 0.6rem 0.9rem;
+    gap: 0.9rem;
+}
+
+:root[data-song-layout="list"] .artist-card:hover {
+    transform: none;
+}
+
+:root[data-song-layout="list"] .artist-card .artist-portrait {
+    width: 3rem;
+    height: 3rem;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+:root[data-song-layout="list"] .artist-card-info {
+    text-align: left;
+}
+
+:root[data-song-layout="list"] .artist-card h3 {
+    font-size: 0.95rem;
 }
 
 @media (max-width: 768px) {
@@ -188,7 +292,7 @@
         backdrop-filter: none;
         padding: 0;
         margin-bottom: 0.75rem;
-        transition: transform 0.3s ease, opacity 0.3s ease;
+        transition: transform var(--sd-dur-base) var(--sd-ease-glass), opacity var(--sd-dur-base) var(--sd-ease-glass);
     }
 
     .page-header.header-hidden {
@@ -201,17 +305,9 @@
         width: 100%;
     }
 
-    /* Expand search bar to full width */
+    /* Search moves to bottom MobileSearchBar on mobile */
     .page-search {
-        flex: 1;
-        padding: 0.8rem 1.1rem;
-        font-size: 1rem;
-    }
-
-    .page-search input {
-        min-width: 0;
-        width: 100%;
-        font-size: 1rem;
+        display: none;
     }
 
     /* Icon buttons move into chip row — hide them from the header */
@@ -229,5 +325,10 @@
         padding: 0.55rem;
         min-width: 0;
         overflow: hidden;
+    }
+
+    .albums-card .meta-row svg {
+        width: 1rem;
+        height: 1rem;
     }
 }
