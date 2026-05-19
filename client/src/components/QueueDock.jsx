@@ -26,7 +26,7 @@ const QueueDock = () => {
                 setLeaving(false);
             }, 420);
         }
-    }, [hasAny]);
+    }, [hasAny]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (!visible) return null;
 
