@@ -603,18 +603,21 @@ const handleBack = () => {
             className={`library-container ${openMenuId ? 'has-active-menu' : ''} ${isSelectionMode ? 'selection-mode' : ''}`} 
             onClick={handleContainerClick}
         >
-            <Toaster position={window.innerWidth <= 768 ? "top-center" : "bottom-center"} containerStyle={{ zIndex: 99999 }} toastOptions={{
-                style: {
-                    background: 'rgba(15, 23, 42, 0.55)',
-                    color: 'white',
-                    backdropFilter: 'blur(var(--sd-blur-lg))',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    borderRadius: '0.85rem',
-                    boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
-                },
-                success: { style: { background: 'rgba(20, 184, 166, 0.35)', border: '1px solid rgba(20, 184, 166, 0.4)' } },
-                error:   { style: { background: 'rgba(255, 49, 49, 0.35)',   border: '1px solid rgba(255, 49, 49, 0.4)' } },
-            }} />
+            {createPortal(
+                <Toaster position={window.innerWidth <= 768 ? "top-center" : "bottom-center"} containerStyle={{ zIndex: 99999 }} toastOptions={{
+                    style: {
+                        background: 'rgba(15, 23, 42, 0.55)',
+                        color: 'white',
+                        backdropFilter: 'blur(var(--sd-blur-lg))',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        borderRadius: '0.85rem',
+                        boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+                    },
+                    success: { style: { background: 'rgba(20, 184, 166, 0.35)', border: '1px solid rgba(20, 184, 166, 0.4)' } },
+                    error:   { style: { background: 'rgba(255, 49, 49, 0.35)',   border: '1px solid rgba(255, 49, 49, 0.4)' } },
+                }} />,
+                document.body
+            )}
             
             {view === 'albums' && (
                 <div className="page-header" ref={headerRef}>
