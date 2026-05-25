@@ -280,6 +280,7 @@
     transform: rotate(180deg);
 }
 
+
 .edit-mode-btn svg {
     transition: transform var(--sd-dur-base) var(--sd-ease-bounce);
 }
@@ -428,6 +429,13 @@
     padding: 0.4rem;
     width: auto;
     height: auto;
+}
+
+.album-actions .edit-mode-btn {
+    border-radius: 99px;
+    padding: 0.5rem 1rem;
+    gap: 0.4rem;
+    font-size: 0.88rem;
 }
 
 .hero-action-btn {
@@ -779,7 +787,7 @@
     border-color: var(--tf-accent);
     color: white;
     transform: scale(1.01);
-    box-shadow: 0 4px 20px rgba(29, 185, 84, 0.3);
+    box-shadow: 0 4px 20px rgba(20, 184, 166, 0.3);
 }
 
 .selection-mode .song-row.selected:hover {
@@ -787,11 +795,11 @@
 }
 
 .selection-mode .song-row.selected::before {
-    background-color: rgba(29, 185, 84, 0.6);
+    background-color: rgba(20, 184, 166, 0.6);
 }
 
 .selection-mode .song-row.selected:hover::before {
-    background-color: rgba(29, 185, 84, 0.7);
+    background-color: rgba(20, 184, 166, 0.7);
 }
 
 .library-checkbox {
@@ -902,6 +910,11 @@
     justify-content: center;
     border-radius: 50%;
     font-size: 0.9rem;
+}
+
+/* Desktop: bulk-bar-inner is just a transparent pass-through flex wrapper */
+.bulk-bar-inner {
+    display: contents;
 }
 
 .bulk-actions-buttons {
@@ -1364,6 +1377,17 @@
         display: none;
     }
 
+    .album-actions .hero-action-btn,
+    .album-actions .edit-mode-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        padding: 0;
+        gap: 0;
+        justify-content: center;
+        font-size: 1.2rem;
+    }
+
     /* Album back button — circle icon floating over the hero, mobile only */
     .section-back.album-back {
         display: flex;
@@ -1569,44 +1593,90 @@
         height: 38px;
     }
 
-    /* Bulk action bar sits above the fixed bottom nav */
+    /* Bulk action bar sits above the fixed bottom nav — search-bar style */
     .bulk-action-bar-container {
-        bottom: calc(68px + env(safe-area-inset-bottom, 0px) + 0.5rem);
+        bottom: calc(68px + env(safe-area-inset-bottom, 0px) + 1.25rem);
         left: 0.75rem;
         right: 0.75rem;
+        justify-content: stretch;
     }
 
+    /* Outer row — transparent, just provides flex gap between pill and delete */
     .bulk-action-bar {
-        padding: 0.5rem 0.75rem;
-        border-radius: var(--sd-radius-lg);
-        gap: 0.5rem;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        padding: 0;
+        box-shadow: none;
+        backdrop-filter: none;
     }
 
-    .bulk-btn {
-        padding: 0;
-        width: 2.8rem;
-        height: 2.8rem;
+    /* Collapse wrappers — all four items become direct flex siblings */
+    .bulk-bar-inner,
+    .bulk-actions-buttons {
+        display: contents;
+    }
+
+    /* Count pill */
+    .bulk-info {
+        flex: 2;
+        display: flex;
+        align-items: center;
         justify-content: center;
-        border-radius: 50%;
+        border-right: none;
+        padding: 0.65rem 0.5rem;
+        background: var(--sd-glass-10);
+        backdrop-filter: blur(var(--sd-blur-md));
+        border: 1px solid var(--sd-glass-border);
+        border-radius: var(--sd-radius-xl);
+        box-shadow: var(--sd-shadow-md);
+        margin-right: 0;
     }
 
     .bulk-info .count {
-        width: auto;
-        height: 2.4rem;
-        padding: 0 0.8rem;
-        font-size: 0.85rem;
-        border-radius: var(--sd-radius-lg);
+        all: unset;
+        font-size: 0.9rem;
+        font-weight: var(--sd-fw-semibold);
+        color: white;
         font-variant-numeric: tabular-nums;
+        white-space: nowrap;
         display: flex;
         align-items: center;
-        white-space: nowrap;
-        gap: 0.4rem;
+        gap: 0.3rem;
     }
 
-    .bulk-info {
-        border-right: none;
-        padding-right: 0;
-        margin-right: 0.5rem;
+    /* Like / Unlike / Delete — equal-width pills */
+    .bulk-btn {
+        flex: 1;
+        padding: 0.65rem 0.5rem;
+        width: auto;
+        height: auto;
+        border-radius: var(--sd-radius-xl);
+        justify-content: center;
+        background: var(--sd-glass-10);
+        backdrop-filter: blur(var(--sd-blur-md));
+        border: 1px solid var(--sd-glass-border);
+        box-shadow: var(--sd-shadow-md);
+    }
+
+    .bulk-btn svg {
+        width: 1.1rem;
+        height: 1.1rem;
+    }
+
+    .bulk-btn.delete {
+        background: rgba(255, 49, 49, 0.25);
+        border-color: rgba(255, 49, 49, 0.45);
+        align-self: auto;
+    }
+
+    .bulk-btn.delete svg {
+        width: 1.25rem;
+        height: 1.25rem;
     }
 
     .bulk-divider {
