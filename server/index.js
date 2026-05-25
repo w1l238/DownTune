@@ -600,7 +600,14 @@ app.put('/api/files/:id/metadata', async (req, res) => {
     const { title, artist, album, trackNumber, discNumber, year, releaseTime, artworkUrl, genre, comment, lyrics } = req.body;
     try {
         info(`Updating metadata for song ID: ${id}`);
-        const tags = { title, artist, album, trackNumber, year, releaseTime };
+        const tags = {
+            title,
+            artist,
+            album,
+            trackNumber: trackNumber != null ? String(trackNumber) : undefined,
+            year: year != null ? String(year) : undefined,
+            releaseTime: releaseTime || undefined,
+        };
         if (discNumber !== undefined) tags.partOfSet = discNumber ? String(discNumber) : null;
         if (genre !== undefined) tags.genre = genre || null;
         if (comment !== undefined) tags.comment = comment ? { language: 'eng', text: comment } : null;
@@ -635,6 +642,73 @@ app.put('/api/files/:id/metadata', async (req, res) => {
     } catch (err) {
         error('Error updating metadata:', err);
         res.status(500).json({ error: err.message || 'Failed to update metadata.' });
+    }
+});
+
+app.post('/api/files/:id/enrich', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const library = await getLibrary();
+        const song = library.find(s => s.id === id);
+        if (!song) return res.status(404).json({ error: 'Song not found in library.' });
+
+        const { artist, title, album, duration } = song;
+
+        const needsMusicBrainz = !song.year || !song.trackNumber || !song.genre ||
+            !song.album || song.album === 'Unknown Album' || song.album === 'YouTube Music';
+        const needsLyrics = !song.lyrics;
+
+        if (!needsMusicBrainz && !needsLyrics) {
+            return res.json({ enriched: {}, found: [] });
+        }
+
+        // Run both fetches in parallel where possible
+        const [mbResult, lyricsResult] = await Promise.all([
+            needsMusicBrainz ? metadataService.enrich(artist, title, album) : Promise.resolve(null),
+            needsLyrics ? lyricsService.fetch(artist, title, album, duration) : Promise.resolve(null),
+        ]);
+
+        const enriched = {};
+        const found = [];
+        const sources = {};
+        const mbContext = mbResult?.album && mbResult.album !== 'YouTube Music' ? mbResult.album : null;
+
+        if (mbResult) {
+            if (mbResult.album && mbResult.album !== 'YouTube Music' &&
+                (!song.album || song.album === 'Unknown Album' || song.album === 'YouTube Music')) {
+                enriched.album = mbResult.album;
+                found.push('album');
+                sources.album = { provider: 'MusicBrainz', context: mbContext };
+            }
+            if (mbResult.year && !song.year) {
+                enriched.year = mbResult.year; found.push('year');
+                sources.year = { provider: 'MusicBrainz', context: mbContext };
+            }
+            if (mbResult.trackNumber && !song.trackNumber) {
+                enriched.trackNumber = mbResult.trackNumber; found.push('track number');
+                sources.trackNumber = { provider: 'MusicBrainz', context: mbContext };
+            }
+            if (mbResult.genre && !song.genre) {
+                enriched.genre = mbResult.genre; found.push('genre');
+                sources.genre = { provider: 'MusicBrainz', context: mbContext };
+            }
+            if (mbResult.releaseDate && !song.releaseTime) {
+                enriched.releaseTime = mbResult.releaseDate;
+                sources.releaseTime = { provider: 'MusicBrainz', context: mbContext };
+            }
+        }
+
+        if (lyricsResult) {
+            enriched.lyrics = lyricsResult;
+            found.push('lyrics');
+            sources.lyrics = { provider: 'LRCLIB' };
+        }
+
+        info(`Enrich result for "${title}": found [${found.join(', ') || 'nothing'}]`);
+        res.json({ enriched, found, sources });
+    } catch (err) {
+        error('Error enriching metadata:', err);
+        res.status(500).json({ error: err.message || 'Failed to enrich metadata.' });
     }
 });
 
