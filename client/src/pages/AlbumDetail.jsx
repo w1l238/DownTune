@@ -19,6 +19,8 @@ const AlbumDetail = () => {
     const [editModal, setEditModal] = useState({ show: false, song: null });
     const [menuOpenId, setMenuOpenId] = useState(null);
     const [menuPos, setMenuPos] = useState(null); // { top|bottom, right } in viewport coords
+    const [isEnriching, setIsEnriching] = useState(false);
+    const [enrichedSources, setEnrichedSources] = useState({});
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState([]);
     const [bulkDeleteModal, setBulkDeleteModal] = useState({ show: false, count: 0 });
@@ -152,8 +154,47 @@ const AlbumDetail = () => {
         }
     };
 
-    const handleEditClick = (song) => {
+    const needsEnrichment = (song) =>
+        !song.lyrics || !song.genre || !song.year || !song.trackNumber ||
+        !song.album || song.album === 'Unknown Album' || song.album === 'YouTube Music';
+
+    const handleEnrich = async () => {
+        if (!editModal.song) return;
+        setIsEnriching(true);
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/files/${encodeURIComponent(editModal.song.id)}/enrich`, { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok) { toast.error(data.error || 'Failed to fetch metadata'); return; }
+            if (data.found.length === 0) {
+                toast('Nothing new found', { icon: 'ℹ️' });
+            } else {
+                setEditModal(prev => ({ ...prev, song: { ...prev.song, ...data.enriched } }));
+                setEnrichedSources(data.sources || {});
+                toast.success(`Found: ${data.found.join(', ')}`);
+            }
+        } catch {
+            toast.error('Network error fetching metadata');
+        } finally {
+            setIsEnriching(false);
+        }
+    };
+
+    // Clear enrichment highlights when modal is closed
+    useEffect(() => {
+        if (!editModal.show) setEnrichedSources({});
+    }, [editModal.show]);
+
+    const handleEditClick = async (song) => {
         setEditModal({ show: true, song: { ...song, releaseTime: song.releaseTime || song.year } });
+        try {
+            const q = encodeURIComponent(`${song.artist} ${song.title}`);
+            const res = await fetch(`https://itunes.apple.com/search?term=${q}&entity=song&limit=1`);
+            if (res.ok) {
+                const data = await res.json();
+                const url = data.results?.[0]?.artworkUrl100?.replace('100x100bb', '600x600bb');
+                if (url) setEditModal(prev => ({ ...prev, song: { ...prev.song, artworkUrl: url } }));
+            }
+        } catch { /* fail silently */ }
     };
 
     const saveMetadata = async () => {
@@ -226,7 +267,7 @@ const AlbumDetail = () => {
 
     return (
         <div className="library-container">
-            <Toaster position="top-center" toastOptions={{
+            <Toaster position="top-center" containerStyle={{ zIndex: 99999 }} toastOptions={{
                 style: {
                     background: 'rgba(15, 23, 42, 0.55)',
                     color: 'white',
@@ -349,7 +390,7 @@ const AlbumDetail = () => {
                                 <FiHeart size={13} fill={song.isLiked ? 'currentColor' : 'none'} />
                                 <span>{song.isLiked ? 'Unlike' : 'Like'}</span>
                             </button>
-                            <button className="row-action-btn edit" title="Edit" onClick={(e) => { e.stopPropagation(); setEditModal({ show: true, song: { ...song } }); }}>
+                            <button className="row-action-btn edit" title="Edit" onClick={(e) => { e.stopPropagation(); handleEditClick(song); }}>
                                 <FiEdit size={13} />
                                 <span>Edit</span>
                             </button>
@@ -403,84 +444,137 @@ const AlbumDetail = () => {
                             <span className="modal-title"><FiEdit size={13} /> Edit Metadata</span>
                             <button className="modal-close-btn" onClick={() => setEditModal({ show: false, song: null })}><FiX size={13} /></button>
                         </div>
-                        <div className="edit-form">
-                            <label>Title</label>
-                            <input
-                                type="text"
-                                value={editModal.song.title || ''}
-                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, title: e.target.value } })}
+                        <div className="edit-modal-body">
+                        <div className="edit-modal-preview">
+                            <img
+                                className="edit-modal-preview-art"
+                                src={editModal.song.artworkUrl || `${API_BASE_URL}/api/files/${encodeURIComponent(editModal.song.id)}/art`}
+                                alt=""
+                                onError={e => { e.currentTarget.style.opacity = '0'; }}
                             />
-                            <label>Artist</label>
-                            <input
-                                type="text"
-                                value={editModal.song.artist || ''}
-                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, artist: e.target.value } })}
-                            />
-                            <label>Album</label>
-                            <input
-                                type="text"
-                                value={editModal.song.album || ''}
-                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, album: e.target.value } })}
-                            />
-                            <label>Year</label>
-                            <input
-                                type="number"
-                                value={editModal.song.year || ''}
-                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, year: e.target.value } })}
-                                placeholder="e.g. 2024"
-                            />
-                            <label>Track Number</label>
-                            <input
-                                type="text"
-                                value={editModal.song.trackNumber || ''}
-                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, trackNumber: e.target.value } })}
-                                placeholder="e.g. 1"
-                            />
-                            <label>Disc Number</label>
-                            <input
-                                type="text"
-                                value={editModal.song.discNumber || ''}
-                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, discNumber: e.target.value } })}
-                                placeholder="e.g. 1"
-                            />
-                            <label>Genre</label>
-                            <input
-                                type="text"
-                                value={editModal.song.genre || ''}
-                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, genre: e.target.value } })}
-                                placeholder="e.g. Electronic"
-                            />
-                            <label>Release Date (Detailed)</label>
-                            <input
-                                type="text"
-                                value={editModal.song.releaseTime || ''}
-                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, releaseTime: e.target.value } })}
-                                placeholder="e.g. 2024-03-12"
-                            />
-                            <label>Comment</label>
-                            <textarea
-                                value={editModal.song.comment || ''}
-                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, comment: e.target.value } })}
-                                placeholder="Optional notes or comment"
-                                rows={2}
-                            />
-                            <label>Lyrics</label>
-                            <textarea
-                                value={editModal.song.lyrics || ''}
-                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, lyrics: e.target.value } })}
-                                placeholder="Paste lyrics here…"
-                                rows={6}
-                            />
-                            <label>New Artwork URL (Optional)</label>
-                            <input
-                                type="text"
-                                value={editModal.song.artworkUrl || ''}
-                                onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, artworkUrl: e.target.value } })}
-                                placeholder="https://example.com/image.jpg"
-                            />
+                            <div className="edit-modal-preview-info">
+                                <span className="edit-modal-preview-title">{editModal.song.title || 'Unknown Title'}</span>
+                                <span className="edit-modal-preview-artist">{editModal.song.artist || 'Unknown Artist'}</span>
+                            </div>
                         </div>
+                        <div className="edit-form">
+                            <div className="edit-field span-2">
+                                <label>Title</label>
+                                <input
+                                    type="text"
+                                    value={editModal.song.title || ''}
+                                    onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, title: e.target.value } })}
+                                />
+                            </div>
+                            <div className="edit-field">
+                                <label>Artist</label>
+                                <input
+                                    type="text"
+                                    value={editModal.song.artist || ''}
+                                    onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, artist: e.target.value } })}
+                                />
+                            </div>
+                            <div className="edit-field">
+                                <label>Album</label>
+                                <input
+                                    type="text"
+                                    className={enrichedSources.album ? 'enriched-input' : ''}
+                                    value={editModal.song.album || ''}
+                                    onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, album: e.target.value } })}
+                                />
+                                {enrichedSources.album && <span className="field-source" title={`${enrichedSources.album.provider}${enrichedSources.album.context ? ` · ${enrichedSources.album.context}` : ''}`}>via {enrichedSources.album.provider}{enrichedSources.album.context ? ` · ${enrichedSources.album.context}` : ''}</span>}
+                            </div>
+                            <div className="edit-field">
+                                <label>Year</label>
+                                <input
+                                    type="number"
+                                    className={enrichedSources.year ? 'enriched-input' : ''}
+                                    value={editModal.song.year || ''}
+                                    onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, year: e.target.value } })}
+                                    placeholder="e.g. 2024"
+                                />
+                                {enrichedSources.year && <span className="field-source" title={`${enrichedSources.year.provider}${enrichedSources.year.context ? ` · ${enrichedSources.year.context}` : ''}`}>via {enrichedSources.year.provider}{enrichedSources.year.context ? ` · ${enrichedSources.year.context}` : ''}</span>}
+                            </div>
+                            <div className="edit-field">
+                                <label>Track Number</label>
+                                <input
+                                    type="text"
+                                    className={enrichedSources.trackNumber ? 'enriched-input' : ''}
+                                    value={editModal.song.trackNumber || ''}
+                                    onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, trackNumber: e.target.value } })}
+                                    placeholder="e.g. 1"
+                                />
+                                {enrichedSources.trackNumber && <span className="field-source" title={`${enrichedSources.trackNumber.provider}${enrichedSources.trackNumber.context ? ` · ${enrichedSources.trackNumber.context}` : ''}`}>via {enrichedSources.trackNumber.provider}{enrichedSources.trackNumber.context ? ` · ${enrichedSources.trackNumber.context}` : ''}</span>}
+                            </div>
+                            <div className="edit-field">
+                                <label>Disc Number</label>
+                                <input
+                                    type="text"
+                                    value={editModal.song.discNumber || ''}
+                                    onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, discNumber: e.target.value } })}
+                                    placeholder="e.g. 1"
+                                />
+                            </div>
+                            <div className="edit-field">
+                                <label>Genre</label>
+                                <input
+                                    type="text"
+                                    className={enrichedSources.genre ? 'enriched-input' : ''}
+                                    value={editModal.song.genre || ''}
+                                    onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, genre: e.target.value } })}
+                                    placeholder="e.g. Electronic"
+                                />
+                                {enrichedSources.genre && <span className="field-source" title={`${enrichedSources.genre.provider}${enrichedSources.genre.context ? ` · ${enrichedSources.genre.context}` : ''}`}>via {enrichedSources.genre.provider}{enrichedSources.genre.context ? ` · ${enrichedSources.genre.context}` : ''}</span>}
+                            </div>
+                            <div className="edit-field span-2">
+                                <label>Release Date (Detailed)</label>
+                                <input
+                                    type="text"
+                                    className={enrichedSources.releaseTime ? 'enriched-input' : ''}
+                                    value={editModal.song.releaseTime || ''}
+                                    onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, releaseTime: e.target.value } })}
+                                    placeholder="e.g. 2024-03-12"
+                                />
+                                {enrichedSources.releaseTime && <span className="field-source" title={`${enrichedSources.releaseTime.provider}${enrichedSources.releaseTime.context ? ` · ${enrichedSources.releaseTime.context}` : ''}`}>via {enrichedSources.releaseTime.provider}{enrichedSources.releaseTime.context ? ` · ${enrichedSources.releaseTime.context}` : ''}</span>}
+                            </div>
+                            <div className="edit-field span-2">
+                                <label>Comment</label>
+                                <textarea
+                                    value={editModal.song.comment || ''}
+                                    onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, comment: e.target.value } })}
+                                    placeholder="Optional notes or comment"
+                                    rows={2}
+                                />
+                            </div>
+                            <div className="edit-field span-2">
+                                <label>Lyrics</label>
+                                <textarea
+                                    className={enrichedSources.lyrics ? 'enriched-input' : ''}
+                                    value={editModal.song.lyrics || ''}
+                                    onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, lyrics: e.target.value } })}
+                                    placeholder="Paste lyrics here…"
+                                    rows={6}
+                                />
+                                {enrichedSources.lyrics && <span className="field-source">via {enrichedSources.lyrics.provider}</span>}
+                            </div>
+                            <div className="edit-field span-2">
+                                <label>Artwork URL</label>
+                                <input
+                                    type="text"
+                                    value={editModal.song.artworkUrl || ''}
+                                    onChange={e => setEditModal({ ...editModal, song: { ...editModal.song, artworkUrl: e.target.value } })}
+                                    placeholder="https://example.com/image.jpg"
+                                />
+                            </div>
+                        </div>
+                        </div>{/* edit-modal-body */}
                         <div className="modal-actions">
                             <button className="modal-btn cancel" onClick={() => setEditModal({ show: false, song: null })}>Cancel</button>
+                            {needsEnrichment(editModal.song) && (
+                                <button className="modal-btn enrich" onClick={handleEnrich} disabled={isEnriching}>
+                                    {isEnriching ? 'Fetching…' : 'Auto-fill'}
+                                </button>
+                            )}
                             <button className="modal-btn save" onClick={saveMetadata}>Save</button>
                         </div>
                     </div>
