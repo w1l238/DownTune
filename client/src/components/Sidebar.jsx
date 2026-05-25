@@ -130,7 +130,7 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
             setScanStatus('success');
             scanResetTimer.current = setTimeout(() => setScanStatus('idle'), 3000);
         });
-    }, [lastCompletedAt]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [lastCompletedAt]);
 
     useEffect(() => {
         if (location.pathname === '/results' && !location.state?.fromSidebar) {
