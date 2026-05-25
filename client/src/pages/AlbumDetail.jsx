@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiChevronLeft, FiHeart, FiTrash2, FiMoreVertical, FiEdit, FiX } from 'react-icons/fi';
+import { LuHeartOff } from 'react-icons/lu';
 import toast, { Toaster } from 'react-hot-toast';
 import { API_BASE_URL } from '../config';
 import './css/Library.css';
@@ -18,6 +19,11 @@ const AlbumDetail = () => {
     const [editModal, setEditModal] = useState({ show: false, song: null });
     const [menuOpenId, setMenuOpenId] = useState(null);
     const [menuPos, setMenuPos] = useState(null); // { top|bottom, right } in viewport coords
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [bulkDeleteModal, setBulkDeleteModal] = useState({ show: false, count: 0 });
+    const [showBulkBar, setShowBulkBar] = useState(false);
+    const [isClosing, setIsClosing] = useState(false);
 
     useEffect(() => {
         document.title = `${albumName} — DownTune`;
@@ -57,6 +63,76 @@ const AlbumDetail = () => {
             setSongs(prev => prev.map(s => s.id === song.id ? { ...s, isLiked: song.isLiked } : s));
         }
     };
+
+    const toggleSelect = (id) => {
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+    };
+
+    const toggleSelectAll = () => {
+        const allSelected = songs.every(s => selectedIds.includes(s.id));
+        setSelectedIds(allSelected ? [] : songs.map(s => s.id));
+    };
+
+    const handleBulkLike = async (shouldLike) => {
+        if (selectedIds.length === 0) return;
+        const prev = songs.map(s => ({ ...s }));
+        setSongs(songs.map(s => selectedIds.includes(s.id) ? { ...s, isLiked: shouldLike } : s));
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/library/bulk/favorite`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: selectedIds, shouldLike }),
+            });
+            if (!res.ok) {
+                setSongs(prev);
+                toast.error('Failed to update favorites');
+            } else {
+                toast.success(`${shouldLike ? 'Liked' : 'Unliked'} ${selectedIds.length} songs`);
+            }
+        } catch {
+            setSongs(prev);
+            toast.error('Network error');
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedIds.length === 0) return;
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/library/bulk/delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: selectedIds }),
+            });
+            if (res.ok) {
+                const results = await res.json();
+                const successIds = results.success;
+                const remaining = songs.filter(s => !successIds.includes(s.id));
+                setSongs(remaining);
+                setSelectedIds([]);
+                setBulkDeleteModal({ show: false, count: 0 });
+                toast.success(`Deleted ${successIds.length} songs`);
+                if (results.failed?.length > 0) toast.error(`Failed to delete ${results.failed.length} songs`);
+                if (remaining.length === 0) navigate(-1);
+            } else {
+                toast.error('Failed to delete songs');
+            }
+        } catch {
+            toast.error('Network error during bulk delete');
+        }
+    };
+
+    useEffect(() => {
+        if (selectedIds.length > 0) {
+            setShowBulkBar(true);
+            setIsClosing(false);
+            document.body.classList.add('bulk-bar-showing');
+        } else if (showBulkBar) {
+            setIsClosing(true);
+            document.body.classList.remove('bulk-bar-showing');
+            const timer = setTimeout(() => { setShowBulkBar(false); setIsClosing(false); }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [selectedIds.length, showBulkBar]);
 
     const likeAlbum = async () => {
         const allLiked = songs.every(s => s.isLiked);
@@ -191,13 +267,38 @@ const AlbumDetail = () => {
                             <FiHeart size={14} fill={songs.every(s => s.isLiked) ? 'currentColor' : 'none'} />
                             <span className="hide-mobile">{songs.every(s => s.isLiked) ? 'Unlike' : 'Like'}</span>
                         </button>
+                        <button
+                            className={`icon-btn edit-mode-btn ${isSelectionMode ? 'active' : ''}`}
+                            onClick={() => {
+                                if (isSelectionMode) {
+                                    setIsSelectionMode(false);
+                                    setSelectedIds([]);
+                                } else {
+                                    setIsSelectionMode(true);
+                                }
+                            }}
+                            title="Toggle Selection Mode"
+                        >
+                            <FiEdit style={{ display: 'block' }} />
+                            <span className="hide-mobile">{isSelectionMode ? 'Done' : 'Select'}</span>
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <div className="song-list">
+            <div className={`song-list ${isSelectionMode ? 'selection-mode' : ''}`}>
                 <div className="song-list-header">
-                    <div>#</div>
+                    <div>
+                        {isSelectionMode ? (
+                            <input
+                                type="checkbox"
+                                className="library-checkbox"
+                                checked={songs.length > 0 && songs.every(s => selectedIds.includes(s.id))}
+                                onChange={toggleSelectAll}
+                                onClick={e => e.stopPropagation()}
+                            />
+                        ) : '#'}
+                    </div>
                     <div>Title</div>
                     <div>Duration</div>
                     <div className="hide-mobile">Size</div>
@@ -206,14 +307,19 @@ const AlbumDetail = () => {
                 {songs.map((song, index) => (
                     <div
                         key={song.id}
-                        className={`song-row ${menuOpenId === song.id ? 'is-active-row' : ''}`}
+                        className={`song-row ${menuOpenId === song.id ? 'is-active-row' : ''} ${selectedIds.includes(song.id) ? 'selected' : ''}`}
+                        onClick={() => isSelectionMode && toggleSelect(song.id)}
                     >
-                        <div className="song-row-num">{index + 1}</div>
+                        <div className="song-row-num">
+                            {isSelectionMode
+                                ? <input type="checkbox" className="library-checkbox" checked={selectedIds.includes(song.id)} onChange={() => toggleSelect(song.id)} onClick={e => e.stopPropagation()} />
+                                : index + 1}
+                        </div>
                         <div className="song-row-title">{song.title}</div>
                         <div className="song-row-duration">{formatDuration(song.duration)}</div>
                         <div className="song-row-size hide-mobile">{formatSize(song.size)}</div>
                         {/* Mobile: three-dot menu */}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', opacity: isSelectionMode ? 0 : 1, pointerEvents: isSelectionMode ? 'none' : 'auto' }}>
                             <button
                                 className="icon-btn more-btn show-mobile"
                                 onClick={(e) => {
@@ -238,7 +344,7 @@ const AlbumDetail = () => {
                             </button>
                         </div>
                         {/* Desktop: slide-in pill buttons (position: absolute via CSS) */}
-                        <div className="song-row-actions hide-mobile">
+                        <div className="song-row-actions hide-mobile" style={{ opacity: isSelectionMode ? 0 : undefined, pointerEvents: isSelectionMode ? 'none' : undefined }}>
                             <button className={`row-action-btn like${song.isLiked ? ' active' : ''}`} title={song.isLiked ? 'Unlike' : 'Like'} onClick={(e) => { e.stopPropagation(); toggleFavorite(song); }}>
                                 <FiHeart size={13} fill={song.isLiked ? 'currentColor' : 'none'} />
                                 <span>{song.isLiked ? 'Unlike' : 'Like'}</span>
@@ -384,18 +490,64 @@ const AlbumDetail = () => {
             )}
 
             {deleteModal.show && createPortal(
-                <div className="modal-backdrop" onClick={() => setDeleteModal({ ...deleteModal, show: false })}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()}>
-                        <h3>Delete Song?</h3>
-                        <p>Are you sure you want to delete <b>{deleteModal.songTitle}</b>?</p>
-                        <p style={{ fontSize: '0.8rem', color: '#aaa', marginBottom: '2rem' }}>This action cannot be undone.</p>
-                        <div className="modal-actions">
-                            <button className="modal-btn cancel" onClick={() => setDeleteModal({ ...deleteModal, show: false })}>Cancel</button>
-                            <button className="modal-btn delete" onClick={confirmDelete}>Delete</button>
+                <>
+                    <div className="portal-overlay" onClick={() => setDeleteModal({ ...deleteModal, show: false })} />
+                    <div className="modal-backdrop" onClick={() => setDeleteModal({ ...deleteModal, show: false })}>
+                        <div className="modal-content" onClick={e => e.stopPropagation()}>
+                            <h3>Delete Song?</h3>
+                            <p>Are you sure you want to delete <b>{deleteModal.songTitle}</b>?</p>
+                            <p style={{ fontSize: '0.8rem', color: '#aaa', marginBottom: '2rem' }}>This action cannot be undone.</p>
+                            <div className="modal-actions">
+                                <button className="modal-btn cancel" onClick={() => setDeleteModal({ ...deleteModal, show: false })}>Cancel</button>
+                                <button className="modal-btn delete" onClick={confirmDelete}>Delete</button>
+                            </div>
                         </div>
                     </div>
-                </div>,
+                </>,
                 document.body
+            )}
+
+            {bulkDeleteModal.show && createPortal(
+                <>
+                    <div className="portal-overlay" onClick={() => setBulkDeleteModal({ show: false, count: 0 })} />
+                    <div className="modal-backdrop" onClick={() => setBulkDeleteModal({ show: false, count: 0 })}>
+                        <div className="modal-content" onClick={e => e.stopPropagation()}>
+                            <h3>Delete {bulkDeleteModal.count} Songs?</h3>
+                            <p>Are you sure you want to delete these songs from your library?</p>
+                            <p style={{ fontSize: '0.8rem', color: '#aaa', marginBottom: '2rem' }}>This action cannot be undone.</p>
+                            <div className="modal-actions">
+                                <button className="modal-btn cancel" onClick={() => setBulkDeleteModal({ show: false, count: 0 })}>Cancel</button>
+                                <button className="modal-btn delete" onClick={handleBulkDelete}>Delete All</button>
+                            </div>
+                        </div>
+                    </div>
+                </>,
+                document.body
+            )}
+
+            {showBulkBar && (
+                <div className="bulk-action-bar-container">
+                    <div className={`bulk-action-bar ${isClosing ? 'is-closing' : ''}`}>
+                        <div className="bulk-bar-inner">
+                            <div className="bulk-info">
+                                <span className="count">
+                                    {selectedIds.length} <span className="show-mobile">Selected</span>
+                                </span>
+                            </div>
+                            <div className="bulk-actions-buttons">
+                                <button className="bulk-btn like" onClick={() => handleBulkLike(true)} title="Like Selected">
+                                    <FiHeart fill="currentColor" /> <span className="hide-mobile">Like</span>
+                                </button>
+                                <button className="bulk-btn unlike" onClick={() => handleBulkLike(false)} title="Unlike Selected">
+                                    <LuHeartOff /> <span className="hide-mobile">Unlike</span>
+                                </button>
+                            </div>
+                        </div>
+                        <button className="bulk-btn delete" onClick={() => setBulkDeleteModal({ show: true, count: selectedIds.length })} title="Delete Selected">
+                            <FiTrash2 /> <span className="hide-mobile">Delete</span>
+                        </button>
+                    </div>
+                </div>
             )}
         </div>
     );
