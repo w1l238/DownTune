@@ -43,14 +43,16 @@ export class MetadataService {
    * @param {string} title 
    * @returns {Promise<{album: string, year?: string}>}
    */
-  async enrich(artist, title) {
+  async enrich(artist, title, albumHint = '') {
     if (!artist || !title) return { album: 'YouTube Music' };
 
-    const cacheKey = `${artist.toLowerCase()}|${title.toLowerCase()}`;
+    // Include albumHint in cache key so different album contexts get independent results
+    const cacheKey = `${artist.toLowerCase()}|${title.toLowerCase()}|${albumHint.toLowerCase()}`;
     if (this.cache.has(cacheKey)) {
       const cached = this.cache.get(cacheKey);
-      // Only return if it actually has enriched data, otherwise try again
-      if (cached.trackNumber || cached.year) {
+      // Only return if it has enriched data and the track number (if present) is a plain integer
+      const trackNumOk = !cached.trackNumber || /^\d+$/.test(cached.trackNumber);
+      if ((cached.trackNumber || cached.year) && trackNumOk) {
           // info(`Cache hit for metadata: ${artist} - ${title}`);
           return cached;
       }
@@ -58,10 +60,10 @@ export class MetadataService {
 
     try {
       await this.throttle();
-      
+
       const query = `recording:"${title}" AND artist:"${artist}"`;
       const url = `https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(query)}&fmt=json&inc=genres+tags`;
-      
+
       info(`Enriching metadata via MusicBrainz: ${artist} - ${title}`);
       const response = await fetch(url, {
         headers: {
@@ -74,7 +76,7 @@ export class MetadataService {
       }
 
       const data = await response.json();
-      const enrichment = this.parseMusicBrainz(data, title);
+      const enrichment = this.parseMusicBrainz(data, title, albumHint);
       
       info(`Enrichment result for "${title}": album="${enrichment.album}", year="${enrichment.year}", track="${enrichment.trackNumber}"`);
       
@@ -88,7 +90,7 @@ export class MetadataService {
     }
   }
 
-  parseMusicBrainz(data, title) {
+  parseMusicBrainz(data, title, albumHint = '') {
     if (!data.recordings || data.recordings.length === 0) {
       info(`No MusicBrainz recordings found for "${title}"`);
       return { album: 'YouTube Music' };
@@ -142,6 +144,20 @@ export class MetadataService {
       const isVarious = artistCredit.some(c => c.artist && c.artist.name === 'Various Artists');
       if (isVarious) score -= 15;
 
+      // Penalise vinyl/non-standard track numbering (A1, B6, etc.)
+      const allTracks = (r.media || []).flatMap(m => m.track || []);
+      const hasVinylNumbers = allTracks.length > 0 &&
+          allTracks.every(t => t.number && !/^\d+$/.test(t.number));
+      if (hasVinylNumbers) score -= 15;
+
+      // Boost releases that match the song's existing album metadata
+      if (albumHint) {
+        const hint = albumHint.toLowerCase();
+        const rTitle = r.title.toLowerCase();
+        if (rTitle === hint) score += 40;
+        else if (rTitle.includes(hint) || hint.includes(rTitle)) score += 20;
+      }
+
       // Title-based penalties
       const lowerTitle = r.title.toLowerCase();
       if (lowerTitle.includes('live at')) score -= 100;
@@ -161,13 +177,18 @@ export class MetadataService {
     const bestRelease = best.release;
 
     // Try to find track number in the best release
+    // Prefer the display `number` when it's a plain integer; fall back to `position`
+    // (which is always a sequential integer) to avoid vinyl-style labels like "B6"
     let trackNumber = undefined;
     if (bestRelease.media) {
         for (const media of bestRelease.media) {
             if (media.track) {
                 const matchedTrack = media.track.find(t => t.title.toLowerCase() === title.toLowerCase());
                 if (matchedTrack) {
-                    trackNumber = matchedTrack.number;
+                    const raw = matchedTrack.number;
+                    trackNumber = /^\d+$/.test(raw)
+                        ? raw
+                        : String(matchedTrack.position ?? raw);
                     break;
                 }
             }
