@@ -24,6 +24,8 @@ The settings page is mainly the same but with extra functionality and features. 
 ### Other Things
 There are many other tweaks and additions that have made their way into this new UI. Mess around in the app and you might see some of them!
 
+### Use of LLMs
+Yes, this project does use large language models (or AI) for rapid development and git commits, etc. Since this is a sensitive topic in online spaces if you don't want to use it due to this then that's your prerogative. If you still would like to try this out, by all means.
 
 
 ## Setup (Baremetal)
