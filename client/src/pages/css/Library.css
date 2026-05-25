@@ -1347,10 +1347,12 @@
 /* ── Enriched field highlighting */
 .edit-form input.enriched-input,
 .edit-form textarea.enriched-input {
-    border-color: rgba(20, 184, 166, 0.55);
-    background: rgba(20, 184, 166, 0.06);
+    border-color: var(--tf-accent-soft);
+    background: var(--tf-accent-tint);
+    color: var(--tf-accent-bright);
     transition: border-color var(--sd-dur-base) var(--sd-ease-glass),
-                background var(--sd-dur-base) var(--sd-ease-glass);
+                background var(--sd-dur-base) var(--sd-ease-glass),
+                color var(--sd-dur-base) var(--sd-ease-glass);
 }
 
 .field-source {
