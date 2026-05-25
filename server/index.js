@@ -445,6 +445,7 @@ app.post('/download-song', async (req, res) => {
       info(`ID3 tags written for "${trackName}"`);
 
       info(`Completed download: ${outputFilePath}`);
+      refreshLibrary().catch(err => error(`Library refresh failed: ${err.message}`));
       res.json({ message: 'Song downloaded and converted successfully', filePath: outputFilePath });
     } catch (err) {
       error(`Download failure for "${trackName}": ${err.message}`);
