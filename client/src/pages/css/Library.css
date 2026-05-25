@@ -1211,12 +1211,17 @@
     z-index: 1;
 }
 
-.modal-content.edit-modal .edit-form {
-    overflow-y: auto;
-    padding: 1.25rem 1.5rem;
+.modal-content.edit-modal .edit-modal-body {
     flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+
+.modal-content.edit-modal .edit-form {
+    padding: 1.25rem 1.5rem;
 }
 
 .modal-content.edit-modal .modal-actions {
@@ -1314,9 +1319,54 @@
     background: var(--tf-accent-hover);
 }
 
+.modal-btn.enrich {
+    background: var(--sd-glass-10);
+    border: 1px solid var(--sd-glass-border);
+    color: var(--tf-accent-bright);
+}
+
+.modal-btn.enrich:hover {
+    background: var(--sd-glass-15);
+}
+
+.modal-btn.enrich:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .modal-btn.delete {
     background-color: #ff5050;
     color: white;
+}
+
+/* ── Edit field wrapper (display:contents on mobile → label/input stay as flex children) */
+.edit-field {
+    display: contents;
+}
+
+/* ── Enriched field highlighting */
+.edit-form input.enriched-input,
+.edit-form textarea.enriched-input {
+    border-color: rgba(20, 184, 166, 0.55);
+    background: rgba(20, 184, 166, 0.06);
+    transition: border-color var(--sd-dur-base) var(--sd-ease-glass),
+                background var(--sd-dur-base) var(--sd-ease-glass);
+}
+
+.field-source {
+    font-size: 0.7rem;
+    color: var(--tf-accent-bright);
+    opacity: 0.75;
+    margin-left: 0.5rem;
+    margin-top: -0.3rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Edit modal preview strip (hidden on mobile, shown on desktop) */
+.edit-modal-preview {
+    display: none;
 }
 
 /* ── List layout for album/artist card grids ─────────────────────── */
@@ -1709,9 +1759,12 @@
         padding: 0;
     }
 
-    .modal-content.edit-modal .edit-form {
+    .modal-content.edit-modal .edit-modal-body {
         flex: 1;
         overflow-y: auto;
+    }
+
+    .modal-content.edit-modal .edit-form {
         padding: 1.25rem;
         padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
     }
@@ -1753,5 +1806,91 @@
 
     .no-items-message {
         margin-top: 4rem;
+    }
+}
+
+/* ── Desktop edit modal redesign ──────────────────────────────────── */
+@media (min-width: 769px) {
+    .modal-content.edit-modal {
+        max-width: 720px;
+    }
+
+    /* Preview strip: album art + title + artist */
+    .edit-modal-preview {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin: 0.85rem 1.5rem 0;
+        padding: 0.85rem 1rem;
+        background: var(--sd-glass-15);
+        border: 1px solid var(--sd-glass-border);
+        border-radius: var(--sd-radius-xl);
+        backdrop-filter: blur(var(--sd-blur-lg));
+        box-shadow: var(--sd-shadow-sm);
+        flex-shrink: 0;
+    }
+
+    .edit-modal-preview-art {
+        width: 64px;
+        height: 64px;
+        border-radius: 0.65rem;
+        object-fit: cover;
+        flex-shrink: 0;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--sd-glass-border-soft);
+    }
+
+    .edit-modal-preview-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        min-width: 0;
+    }
+
+    .edit-modal-preview-title {
+        font-size: 1rem;
+        font-weight: var(--sd-fw-bold);
+        color: var(--sd-fg-1);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .edit-modal-preview-artist {
+        font-size: 0.85rem;
+        color: var(--sd-fg-3);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* 2-column grid for form fields */
+    .modal-content.edit-modal .edit-form {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.55rem 1.25rem;
+        align-items: start;
+        margin-top: 0;
+    }
+
+    .modal-content.edit-modal .edit-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .modal-content.edit-modal .edit-field.span-2 {
+        grid-column: span 2;
+    }
+
+    /* Remove bottom margin on inputs inside grid cells — gap handles spacing */
+    .modal-content.edit-modal .edit-field input,
+    .modal-content.edit-modal .edit-field textarea {
+        margin-bottom: 0;
+    }
+
+    /* Right-align action buttons */
+    .modal-content.edit-modal .modal-actions {
+        justify-content: flex-end;
     }
 }
