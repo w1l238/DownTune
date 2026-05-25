@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
     FiSearch, FiMusic, FiSettings, FiHome, FiDownload,
-    FiChevronLeft, FiChevronRight, FiChevronDown, FiDisc, FiUsers, FiLoader, FiCheck, FiX
+    FiChevronLeft, FiChevronRight, FiChevronDown, FiDisc, FiUsers, FiLoader, FiCheck, FiX, FiRefreshCw
 } from 'react-icons/fi';
 import { API_BASE_URL } from '../config';
 import { useDownloads } from '../contexts/DownloadContext';
@@ -31,6 +31,8 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
     const [artistsLimit, setArtistsLimit] = useState(getArtistsLimit);
     const [storageBytes, setStorageBytes] = useState(null);
     const [keyboardOpen, setKeyboardOpen] = useState(false);
+    const [scanStatus, setScanStatus] = useState('idle');
+    const scanResetTimer = useRef(null);
     const inputRef = useRef(null);
 
     useEffect(() => {
@@ -91,6 +93,28 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
         }
     };
 
+    const handleScan = async () => {
+        if (scanStatus === 'loading') return;
+        setScanStatus('loading');
+        if (scanResetTimer.current) clearTimeout(scanResetTimer.current);
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/library/scan`);
+            await new Promise(r => setTimeout(r, 1000));
+            if (res.ok) {
+                const data = await res.json();
+                loadLibraryTree();
+                loadStorageSize();
+                setScanStatus('success');
+                window.dispatchEvent(new CustomEvent('library-scanned', { detail: data }));
+            } else {
+                setScanStatus('error');
+            }
+        } catch {
+            setScanStatus('error');
+        }
+        scanResetTimer.current = setTimeout(() => setScanStatus('idle'), 3000);
+    };
+
     useEffect(() => {
         checkServerStatus();
         loadLibraryTree();
@@ -98,8 +122,15 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
     }, []);
 
     useEffect(() => {
-        if (lastCompletedAt) { loadLibraryTree(); loadStorageSize(); }
-    }, [lastCompletedAt]);
+        if (!lastCompletedAt) return;
+        if (localStorage.getItem('auto_refresh_library') === 'false') return;
+        setScanStatus('loading');
+        if (scanResetTimer.current) clearTimeout(scanResetTimer.current);
+        Promise.all([loadLibraryTree(), loadStorageSize()]).then(() => {
+            setScanStatus('success');
+            scanResetTimer.current = setTimeout(() => setScanStatus('idle'), 3000);
+        });
+    }, [lastCompletedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (location.pathname === '/results' && !location.state?.fromSidebar) {
@@ -186,6 +217,22 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
                     placeholder="Search…"
                 />
             </form>
+
+            {/* Sync / Rescan button */}
+            <div className="side-sync-wrap">
+                <button
+                    className={`side-sync-btn ${scanStatus}`}
+                    onClick={handleScan}
+                    disabled={scanStatus === 'loading'}
+                    title="Rescan Library"
+                >
+                    {scanStatus === 'loading' ? <FiRefreshCw className="spin" size={14} /> :
+                     scanStatus === 'success' ? <FiCheck size={14} /> :
+                     scanStatus === 'error' ? <FiX size={14} /> :
+                     <FiRefreshCw size={14} />}
+                    <span className="side-sync-label">Rescan Library</span>
+                </button>
+            </div>
 
             {/* Browse nav */}
             {!collapsed && <div className="sidebar-section-h">Browse</div>}

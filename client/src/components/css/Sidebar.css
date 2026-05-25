@@ -132,6 +132,77 @@
     display: none;
 }
 
+/* Sync / Rescan button */
+.side-sync-wrap {
+    flex-shrink: 0;
+}
+
+.side-sync-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.45rem 0.7rem;
+    background: var(--sd-glass-05);
+    border: 1px solid var(--sd-glass-border-soft);
+    border-radius: var(--sd-radius-md);
+    color: var(--sd-fg-3);
+    font-family: inherit;
+    font-size: 0.83rem;
+    cursor: pointer;
+    transition: all var(--sd-dur-fast) var(--sd-ease-glass);
+}
+
+.side-sync-btn:hover:not(:disabled) {
+    background: var(--sd-glass-10);
+    color: white;
+}
+
+.side-sync-btn:disabled {
+    cursor: default;
+}
+
+.side-sync-btn.success {
+    color: var(--tf-accent-bright);
+    border-color: var(--tf-accent-soft);
+}
+
+.side-sync-btn.error {
+    color: var(--sd-error);
+    border-color: rgba(255, 80, 80, 0.35);
+}
+
+.side-sync-btn svg {
+    flex-shrink: 0;
+}
+
+.side-sync-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Collapsed: icon-only centered button with visual padding separation */
+.sidebar.collapsed .side-sync-wrap {
+    padding: 0.5rem 0;
+    border-bottom: 1px dashed var(--sd-glass-border-soft);
+    margin-bottom: 0.25rem;
+    display: flex;
+    justify-content: center;
+}
+
+.sidebar.collapsed .side-sync-btn {
+    width: 2.1rem;
+    height: 2.1rem;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.sidebar.collapsed .side-sync-label {
+    display: none;
+}
+
 /* Section heading */
 .sidebar-section-h {
     font-size: 0.65rem;
@@ -409,6 +480,7 @@
     /* Hide desktop-only sections */
     .sidebar-head,
     .side-search,
+    .side-sync-wrap,
     .side-tree,
     .side-foot,
     .sidebar-section-h,
