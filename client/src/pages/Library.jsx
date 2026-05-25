@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { FiGrid, FiList, FiTrash2, FiMusic, FiSearch, FiRefreshCw, FiArrowLeft, FiDisc, FiX, FiCheck, FiEdit, FiHeart, FiMoreVertical, FiUsers } from 'react-icons/fi';
 import { LuHeartOff } from 'react-icons/lu';
@@ -118,6 +119,17 @@ const Library = () => {
             document.body.classList.remove('bulk-bar-showing');
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        const handler = (e) => {
+            if (e.detail && Array.isArray(e.detail)) {
+                setSongs(e.detail);
+                toast.success('Library updated', { className: 'popup success show' });
+            }
+        };
+        window.addEventListener('library-scanned', handler);
+        return () => window.removeEventListener('library-scanned', handler);
+    }, []);
 
     const toggleLayout = () => {
         setLayoutClicked(true);
@@ -819,7 +831,7 @@ const handleBack = () => {
             )}
 
             {/* Edit Modal */}
-            {editModal.show && (
+            {editModal.show && createPortal(
                 <div className="modal-overlay" onClick={() => setEditModal({ show: false, song: null })}>
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
@@ -915,11 +927,12 @@ const handleBack = () => {
                             <button className="modal-btn save" onClick={saveMetadata}>Save</button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Delete Confirmation Modal */}
-            {deleteModal.show && (
+            {deleteModal.show && createPortal(
                 <div className="modal-overlay" onClick={() => setDeleteModal({ ...deleteModal, show: false })}>
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
                         <h3>Delete Song?</h3>
@@ -930,11 +943,12 @@ const handleBack = () => {
                             <button className="modal-btn delete" onClick={confirmDelete}>Delete</button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Error Modal */}
-            {errorModal.show && (
+            {errorModal.show && createPortal(
                 <div className="modal-overlay">
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
                         <button className="modal-close-btn" onClick={() => setErrorModal({ show: false, message: '' })}>
@@ -943,11 +957,12 @@ const handleBack = () => {
                         <h3 style={{ color: '#ff5050' }}>Error</h3>
                         <p>{errorModal.message}</p>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Bulk Delete Modal */}
-            {bulkDeleteModal.show && (
+            {bulkDeleteModal.show && createPortal(
                 <div className="modal-overlay" onClick={() => setBulkDeleteModal({ show: false, count: 0 })}>
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
                         <h3>Delete {bulkDeleteModal.count} Songs?</h3>
@@ -958,7 +973,8 @@ const handleBack = () => {
                             <button className="modal-btn delete" onClick={handleBulkDelete}>Delete All</button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Bulk Action Bar */}
