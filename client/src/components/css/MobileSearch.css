@@ -8,13 +8,14 @@
     .mobile-search-wrap {
         display: flex;
         align-items: center;
-        gap: 0.55rem;
+        gap: 0; /* spacing handled by pill's margin-left when active */
 
         position: fixed;
-        bottom: calc(68px + env(safe-area-inset-bottom, 0px) + 1.25rem);
+        bottom: calc(var(--mobile-nav-h, 56px) + 0.75rem + env(safe-area-inset-bottom, 0px) + 0.5rem);
         left: 0.75rem;
         right: 0.75rem;
         z-index: 190;
+        transition: bottom 0.4s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     /* Input container */
@@ -56,14 +57,13 @@
         color: var(--sd-fg-4);
     }
 
-    /* Pill button — sits outside the input bar */
+    /* Pill button — hidden by default, slides in from the right on focus */
     .mobile-search-pill {
         flex-shrink: 0;
         background: var(--tf-accent-soft);
         border: 1px solid rgba(20, 184, 166, 0.45);
         color: white;
         border-radius: var(--sd-radius-xl);
-        padding: 1rem 1.6rem;
         font-family: inherit;
         font-size: 1.05rem;
         font-weight: var(--sd-fw-semibold);
@@ -71,7 +71,33 @@
         white-space: nowrap;
         backdrop-filter: blur(var(--sd-blur-md));
         box-shadow: var(--sd-shadow-md);
-        transition: background 0.15s var(--sd-ease-glass);
+
+        /* Hidden state: collapsed and shifted right */
+        max-width: 0;
+        padding: 1rem 0;
+        margin-left: 0;
+        overflow: hidden;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(0.75rem);
+
+        transition:
+            max-width    0.38s cubic-bezier(0.22, 1, 0.36, 1),
+            padding      0.32s cubic-bezier(0.22, 1, 0.36, 1),
+            margin-left  0.32s cubic-bezier(0.22, 1, 0.36, 1),
+            opacity      0.22s ease,
+            transform    0.38s cubic-bezier(0.22, 1, 0.36, 1),
+            background   0.15s var(--sd-ease-glass);
+    }
+
+    /* Pill revealed when form is focused */
+    .mobile-search-wrap.pill-active .mobile-search-pill {
+        max-width: 8rem;
+        padding: 1rem 1.6rem;
+        margin-left: 0.55rem;
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateX(0);
     }
 
     .mobile-search-pill:hover {
@@ -81,5 +107,10 @@
 
     .mobile-search-pill:active {
         background: var(--tf-accent-hover);
+    }
+
+    /* When virtual keyboard is open, drop the search bar to sit just above it */
+    body.keyboard-open .mobile-search-wrap {
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
     }
 }

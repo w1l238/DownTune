@@ -75,7 +75,7 @@
 
     /* Extra padding when a MobileSearchBar is present on the page */
     body.has-mobile-search .canvas {
-        padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px) + 1.25rem + 60px + 1rem);
+        padding-bottom: calc(var(--mobile-nav-h, 56px) + 0.75rem + env(safe-area-inset-bottom, 0px) + 0.5rem + 60px + 1rem);
     }
 
     /* Show mobile-only elements */
