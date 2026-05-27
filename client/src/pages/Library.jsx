@@ -824,8 +824,8 @@ const handleBack = () => {
                                             </button>
                                             {openMenuId === song.id && (
                                                 <div className={`song-menu-dropdown ${menuOpenUpwards ? 'open-upwards' : ''}`}>
-                                                    <button onClick={(e) => { e.stopPropagation(); toggleFavorite(song); setOpenMenuId(null); }}>
-                                                        <FiHeart fill={song.isLiked ? 'white' : 'none'} /> <span>{song.isLiked ? 'Unlike' : 'Like'}</span>
+                                                    <button className={song.isLiked ? 'liked' : ''} onClick={(e) => { e.stopPropagation(); toggleFavorite(song); setOpenMenuId(null); }}>
+                                                        <FiHeart fill={song.isLiked ? 'currentColor' : 'none'} /> <span>{song.isLiked ? 'Unlike' : 'Like'}</span>
                                                     </button>
                                                     <button onClick={(e) => { e.stopPropagation(); handleEditClick(song); setOpenMenuId(null); }}>
                                                         <FiEdit /> <span>Edit</span>
@@ -1065,8 +1065,8 @@ const handleBack = () => {
                 document.body
             )}
 
-            {/* Bulk Action Bar */}
-            {showBulkBar && (
+            {/* Bulk Action Bar — portaled to document.body so position:fixed escapes canvas transform containment */}
+            {showBulkBar && createPortal(
                 <div className="bulk-action-bar-container">
                     <div className={`bulk-action-bar ${isClosing ? 'is-closing' : ''}`}>
                         <div className="bulk-info">
@@ -1086,13 +1086,13 @@ const handleBack = () => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
             <MobileSearchBar
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search albums…"
-                buttonLabel="Go"
             />
         </div>
     );

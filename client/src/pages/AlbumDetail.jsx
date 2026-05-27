@@ -302,7 +302,7 @@ const AlbumDetail = () => {
                     <h1>{album.name}</h1>
                     <h2>{album.artist}</h2>
                     <div className="album-actions">
-                        <p>{songs.length} songs</p>
+                        <p>{songs.length} {songs.length === 1 ? 'song' : 'songs'}</p>
                         <button
                             className={`hero-action-btn like-btn ${songs.every(s => s.isLiked) ? 'active' : ''}`}
                             onClick={likeAlbum}
@@ -373,10 +373,13 @@ const AlbumDetail = () => {
                                         setMenuPos(null);
                                     } else {
                                         const rect = e.currentTarget.getBoundingClientRect();
-                                        const openUpwards = window.innerHeight - rect.bottom < 200;
+                                        // On mobile reserve space for the fixed bottom nav bar
+                                        const navReserve = window.innerWidth <= 768 ? 80 : 0;
+                                        const dropdownH = 165;
+                                        const openUpwards = (window.innerHeight - rect.bottom - navReserve) < dropdownH;
                                         setMenuPos({
                                             ...(openUpwards
-                                                ? { bottom: window.innerHeight - rect.top + 4 }
+                                                ? { bottom: window.innerHeight - rect.top + 4, top: 'auto' }
                                                 : { top: rect.bottom + 4 }),
                                             right: window.innerWidth - rect.right,
                                         });
@@ -415,11 +418,11 @@ const AlbumDetail = () => {
                         if (!activeSong) return null;
                         return (
                             <div
-                                className="song-menu-dropdown"
+                                className={`song-menu-dropdown${menuPos?.top === 'auto' ? ' open-upwards' : ''}`}
                                 style={{ position: 'fixed', zIndex: 2001, ...menuPos }}
                             >
-                                <button onClick={() => { toggleFavorite(activeSong); setMenuOpenId(null); setMenuPos(null); }}>
-                                    <FiHeart fill={activeSong.isLiked ? 'white' : 'none'} />
+                                <button className={activeSong.isLiked ? 'liked' : ''} onClick={() => { toggleFavorite(activeSong); setMenuOpenId(null); setMenuPos(null); }}>
+                                    <FiHeart fill={activeSong.isLiked ? 'currentColor' : 'none'} />
                                     <span>{activeSong.isLiked ? 'Unlike' : 'Like'}</span>
                                 </button>
                                 <button onClick={() => { handleEditClick(activeSong); setMenuOpenId(null); setMenuPos(null); }}>
@@ -622,7 +625,7 @@ const AlbumDetail = () => {
                 document.body
             )}
 
-            {showBulkBar && (
+            {showBulkBar && createPortal(
                 <div className="bulk-action-bar-container">
                     <div className={`bulk-action-bar ${isClosing ? 'is-closing' : ''}`}>
                         <div className="bulk-bar-inner">
@@ -644,7 +647,8 @@ const AlbumDetail = () => {
                             <FiTrash2 /> <span className="hide-mobile">Delete</span>
                         </button>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
