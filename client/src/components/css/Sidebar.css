@@ -465,12 +465,14 @@
         border-radius: var(--sd-radius-xl);
         border-bottom: 1px solid var(--sd-glass-border-soft);
         margin: 0;
-        padding: 0.55rem 0.5rem;
+        padding: 0.75rem 0.5rem;
         height: auto;
         gap: 0;
 
         /* Floating shadow */
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255,255,255,0.06);
+
+        transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
     }
 
     .sidebar.collapsed {
@@ -608,32 +610,46 @@
         flex-direction: column;
         gap: 0;
         padding: 0.5rem 0.75rem;
-        border-radius: 0.8rem;
+        border-radius: 99px;
         width: auto;
         align-items: center;
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    /* Suppress default hover background on mobile nav items */
+    .side-link.mobile-nav:hover {
+        background: transparent !important;
     }
 
     .side-link.mobile-nav svg {
         width: 1.5rem;
         height: 1.5rem;
+        transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s ease;
     }
 
     .side-link.mobile-nav span {
         display: none !important;
     }
 
-    /* Hide nav when virtual keyboard is open */
+    /* Slide nav down + fade out when virtual keyboard opens */
     .sidebar.keyboard-open {
-        display: none;
+        transform: translateY(calc(100% + 1.5rem));
+        opacity: 0;
+        pointer-events: none;
     }
 
-    /* Active indicator: teal text + subtle bg, no left bar */
+    /* Active indicator: no left bar, no background — accent color + larger icon */
     .side-link.on::before {
         display: none;
     }
 
     .side-link.mobile-nav.on {
         color: var(--tf-accent-bright);
-        background: var(--tf-accent-tint) !important;
+        background: transparent !important;
+    }
+
+    .side-link.mobile-nav.on svg {
+        transform: scale(1.25);
+        color: var(--tf-accent-bright);
     }
 }

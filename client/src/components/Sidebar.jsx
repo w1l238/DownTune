@@ -34,6 +34,26 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
     const [scanStatus, setScanStatus] = useState('idle');
     const scanResetTimer = useRef(null);
     const inputRef = useRef(null);
+    const sidebarRef = useRef(null);
+
+    // Track sidebar height on mobile and expose as --mobile-nav-h CSS variable
+    useEffect(() => {
+        const el = sidebarRef.current;
+        if (!el) return;
+        const update = () => {
+            if (window.innerWidth <= 768) {
+                document.documentElement.style.setProperty('--mobile-nav-h', `${el.offsetHeight}px`);
+            }
+        };
+        update();
+        const ro = new ResizeObserver(update);
+        ro.observe(el);
+        window.addEventListener('resize', update);
+        return () => {
+            ro.disconnect();
+            window.removeEventListener('resize', update);
+        };
+    }, []);
 
     useEffect(() => {
         const vv = window.visualViewport;
@@ -42,6 +62,11 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
         vv.addEventListener('resize', check);
         return () => vv.removeEventListener('resize', check);
     }, []);
+
+    useEffect(() => {
+        document.body.classList.toggle('keyboard-open', keyboardOpen);
+        return () => document.body.classList.remove('keyboard-open');
+    }, [keyboardOpen]);
 
     useEffect(() => {
         const handler = () => setArtistsLimit(getArtistsLimit());
@@ -188,7 +213,7 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
     const dlPosition = dlDone.length + (dlActive ? 1 : 0);
 
     return (
-        <aside className={`sidebar ${collapsed ? 'collapsed' : ''}${downloads.length > 0 ? ' has-download' : ''}${keyboardOpen ? ' keyboard-open' : ''}`}>
+        <aside ref={sidebarRef} className={`sidebar ${collapsed ? 'collapsed' : ''}${downloads.length > 0 ? ' has-download' : ''}${keyboardOpen ? ' keyboard-open' : ''}`}>
             {/* Header */}
             <div className="sidebar-head">
                 <img src="/tunefall-logo.svg" alt="DownTune" className="sidebar-logo" />
