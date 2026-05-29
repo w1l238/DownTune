@@ -1,0 +1,32 @@
+/* SearchAlbum page — page-specific overrides only.
+   Structural styles come from imported Results.css and Library.css. */
+
+.sab-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* "Download Album" hero button — accent-filled pill */
+.download-album-btn {
+    background: var(--tf-accent-soft) !important;
+    border-color: var(--sd-glass-border-strong) !important;
+    color: white !important;
+    font-weight: var(--sd-fw-semibold) !important;
+}
+
+.download-album-btn:hover:not(:disabled) {
+    background: var(--tf-accent-hover) !important;
+}
+
+.download-album-btn.all-downloaded {
+    background: var(--sd-glass-20) !important;
+    border-color: transparent !important;
+    color: var(--sd-fg-4) !important;
+    cursor: default;
+}
+
+.download-album-btn:disabled:not(.all-downloaded) {
+    opacity: 0.7;
+    cursor: default;
+}
