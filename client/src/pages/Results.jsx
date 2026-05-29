@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
-import { FiDownload, FiRefreshCw, FiCheck, FiMusic, FiSearch, FiX, FiClock, FiSettings } from 'react-icons/fi';
-import { useDownloads } from '../contexts/DownloadContext';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { FiRefreshCw, FiCheck, FiMusic, FiSearch, FiX, FiClock, FiSettings, FiUser, FiDisc } from 'react-icons/fi';
+import { useDownloadTrack } from '../hooks/useDownloadTrack';
 import { API_BASE_URL } from '../config';
 import MobileSearchBar from '../components/MobileSearchBar';
 import './css/Results.css';
@@ -25,45 +25,69 @@ const saveHistory = (query) => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify([query, ...prev].slice(0, MAX_HISTORY)));
 };
 
+const emptyAllResults = () => ({
+    tracks: { items: [], next: null, previous: null },
+    artists: [],
+    albums: [],
+});
+
 const Results = () => {
     const location = useLocation();
-    const { addDownload, updateDownload, showNotification } = useDownloads();
+    const navigate = useNavigate();
     const inputRef = useRef(null);
     const searchBarRef = useRef(null);
     const prefsRef = useRef(null);
 
     const getInitialState = () => {
-        // Navigated with pre-fetched results (e.g. sidebar search)
         if (location.state?.results) {
-            return { query: location.state.query || '', results: location.state.results };
+            // Pre-fetched results (sidebar search — tracks only, wrap into allResults shape)
+            const ar = emptyAllResults();
+            ar.tracks = location.state.results;
+            return { query: location.state.query || '', allResults: ar };
         }
-        // Navigated with only a query (e.g. home page search) — ignore session, will auto-search
         if (location.state?.query) {
             sessionStorage.removeItem(SESSION_KEY);
-            return { query: location.state.query, results: { items: [], next: null, previous: null } };
+            return { query: location.state.query, allResults: emptyAllResults() };
         }
-        // Returning to the page — restore session
         try {
             const saved = sessionStorage.getItem(SESSION_KEY);
-            if (saved) return JSON.parse(saved);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                // Support legacy format: { query, results } where results = tracks object
+                if (parsed.allResults) return parsed;
+                if (parsed.results) {
+                    const ar = emptyAllResults();
+                    ar.tracks = parsed.results;
+                    return { query: parsed.query, allResults: ar };
+                }
+            }
         } catch { /* ignore */ }
-        return { query: '', results: { items: [], next: null, previous: null } };
+        return { query: '', allResults: emptyAllResults() };
     };
 
     const init = getInitialState();
     const [query, setQuery] = useState(init.query);
-    const [results, setResults] = useState(init.results);
-    const [downloading, setDownloading] = useState({});
+    const [allResults, setAllResults] = useState(init.allResults);
+    const [results, setResults] = useState(init.allResults.tracks); // tracks alias for pagination
+    const [activeTab, setActiveTab] = useState('songs');
     const [library, setLibrary] = useState([]);
     const [history, setHistory] = useState(loadHistory);
     const [historyLimit, setHistoryLimit] = useState(loadHistoryLimit);
     const [showHistoryPrefs, setShowHistoryPrefs] = useState(false);
     const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
 
+    const fetchLibrary = async () => {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/library`);
+            if (res.ok) setLibrary(await res.json());
+        } catch { /* silently fail */ }
+    };
+
+    const { downloading, handleDownload } = useDownloadTrack(fetchLibrary);
+
     useEffect(() => {
         document.title = 'Search — DownTune';
         fetchLibrary();
-        // Auto-search when navigated with a query but no pre-fetched results
         if (location.state?.query && !location.state?.results) {
             doSearch(location.state.query);
         }
@@ -71,18 +95,21 @@ const Results = () => {
 
     useEffect(() => {
         if (location.state?.results) {
+            const ar = emptyAllResults();
+            ar.tracks = location.state.results;
+            setAllResults(ar);
             setResults(location.state.results);
             setQuery(location.state.query || '');
         }
     }, [location.state]);
 
     useEffect(() => {
-        if (results.items.length > 0) {
+        if (allResults.tracks.items.length > 0 || allResults.artists.length > 0 || allResults.albums.length > 0) {
             try {
-                sessionStorage.setItem(SESSION_KEY, JSON.stringify({ query, results }));
+                sessionStorage.setItem(SESSION_KEY, JSON.stringify({ query, allResults }));
             } catch { /* ignore */ }
         }
-    }, [results, query]);
+    }, [allResults, query]);
 
     useEffect(() => {
         const canvas = document.querySelector('.canvas');
@@ -115,29 +142,30 @@ const Results = () => {
         return () => document.removeEventListener('mousedown', onClickOutside);
     }, [showHistoryPrefs]);
 
-    const fetchLibrary = async () => {
-        try {
-            const res = await fetch(`${API_BASE_URL}/api/library`);
-            if (res.ok) setLibrary(await res.json());
-        } catch { /* silently fail */ }
-    };
-
     const doSearch = async (q) => {
         const trimmed = (q || query).trim();
         if (!trimmed) return;
         const limit = localStorage.getItem('spotify_results_limit') || 20;
         try {
-            const res = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(trimmed)}&limit=${limit}`);
+            const res = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(trimmed)}&limit=${limit}&type=all`);
             if (res.ok) {
                 const data = await res.json();
-                setResults(data);
+                // data = { tracks, artists, albums }
+                setAllResults(data);
+                setResults(data.tracks);
                 setQuery(trimmed);
                 saveHistory(trimmed);
                 setHistory(loadHistory());
                 if (inputRef.current) inputRef.current.blur();
+                // Switch to songs tab if it was on artists/albums and there are no results there
+                setActiveTab(prev => {
+                    if (prev === 'artists' && data.artists.length === 0) return 'songs';
+                    if (prev === 'albums'  && data.albums.length  === 0) return 'songs';
+                    return prev;
+                });
             }
         } catch {
-            showNotification('Search failed.', 'error');
+            // showNotification not available here; fail silently or use a toast if needed
         }
     };
 
@@ -147,8 +175,10 @@ const Results = () => {
     };
 
     const clearResults = () => {
+        setAllResults(emptyAllResults());
         setResults({ items: [], next: null, previous: null });
         setQuery('');
+        setActiveTab('songs');
         sessionStorage.removeItem(SESSION_KEY);
         if (inputRef.current) inputRef.current.focus();
     };
@@ -166,77 +196,28 @@ const Results = () => {
             track.artists.some(a => song.artist.toLowerCase().includes(a.name.toLowerCase()))
         );
 
-    const handleDownload = async (track) => {
-        const id = track.id;
-        setDownloading(prev => ({ ...prev, [id]: true }));
-
-        const trackDetails = {
-            trackName: track.name,
-            artistName: track.artists.map(a => a.name).join(', '),
-            albumName: track.album.name,
-            albumArtUrl: track.album.images[0]?.url,
-            year: track.album.release_date?.substring(0, 4),
-            trackNumber: track.trackNumber,
-            isYoutube: track.isYoutube,
-            isDeezer: track.isDeezer,
-            url: track.url,
-        };
-
-        addDownload({
-            id,
-            trackName: track.name,
-            artist: track.artists.map(a => a.name).join(', '),
-            albumArtUrl: track.album.images[0]?.url,
-            status: 'queued',
-        });
-        updateDownload(id, { status: 'downloading', progress: 5 });
-
-        const controller = new AbortController();
-        // 10 min timeout — yt-dlp can be slow on long tracks
-        const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000);
-
-        try {
-            const res = await fetch(`${API_BASE_URL}/download-song`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(trackDetails),
-                signal: controller.signal,
-            });
-            const data = await res.json();
-            if (res.ok) {
-                updateDownload(id, { status: 'done', progress: 100 });
-                showNotification(
-                    data.status === 'exists' ? 'Song already downloaded' : 'Download successful!',
-                    data.status === 'exists' ? 'info' : 'success',
-                );
-                fetchLibrary();
-            } else {
-                updateDownload(id, { status: 'error', progress: 0 });
-                showNotification(data.error || 'Download failed.', 'error');
-            }
-        } catch (err) {
-            updateDownload(id, { status: 'error', progress: 0 });
-            showNotification(
-                err?.name === 'AbortError' ? 'Download timed out after 10 minutes.' : 'Download failed.',
-                'error',
-            );
-        } finally {
-            clearTimeout(timeoutId);
-            setDownloading(prev => ({ ...prev, [id]: false }));
-        }
-    };
-
     const fetchPage = async (url) => {
         if (!url) return;
         try {
             const res = await fetch(`${API_BASE_URL}/api/proxy?url=${encodeURIComponent(url)}`);
-            if (res.ok) setResults(await res.json());
+            if (res.ok) {
+                const data = await res.json();
+                setResults(data);
+                setAllResults(prev => ({ ...prev, tracks: data }));
+            }
         } catch { /* silently fail */ }
     };
 
     const hasResults = results.items.length > 0;
+    const hasAnyResults = hasResults || allResults.artists.length > 0 || allResults.albums.length > 0;
     const isMobile = windowWidth <= 768;
     const displayHistory = history.slice(0, isMobile ? 10 : historyLimit);
+
+    const TABS = [
+        { id: 'songs',   label: 'Songs',   count: results.items.length },
+        { id: 'artists', label: 'Artists', count: allResults.artists.length },
+        { id: 'albums',  label: 'Albums',  count: allResults.albums.length },
+    ];
 
     return (
         <div className="results-wrap">
@@ -261,8 +242,24 @@ const Results = () => {
                 </button>
             </form>
 
+            {/* Tab bar — only when any results exist */}
+            {hasAnyResults && (
+                <div className="results-tabs">
+                    {TABS.map(tab => (
+                        <button
+                            key={tab.id}
+                            className={`results-tab${activeTab === tab.id ? ' active' : ''}`}
+                            onClick={() => setActiveTab(tab.id)}
+                        >
+                            {tab.label}
+                            {tab.count > 0 && <span className="results-tab-badge">{tab.count}</span>}
+                        </button>
+                    ))}
+                </div>
+            )}
+
             {/* History chips — shown only when no results */}
-            {!hasResults && history.length > 0 && (
+            {!hasAnyResults && history.length > 0 && (
                 <div className="results-history">
                     <div className="results-history-label">
                         <FiClock size={12} /> Recent searches
@@ -314,51 +311,113 @@ const Results = () => {
                 </div>
             )}
 
-            {/* Results list */}
-            <div className="results-grid">
-                {hasResults ? (
-                    results.items.map((track) => {
-                        const downloaded = isTrackDownloaded(track);
-                        const isDownloading = downloading[track.id];
-                        return (
-                            <div key={track.id} className="track-row">
-                                <div className="track-art">
-                                    {track.album.images[1]?.url || track.album.images[0]?.url ? (
-                                        <img
-                                            src={track.album.images[1]?.url || track.album.images[0]?.url}
-                                            alt={track.album.name}
-                                        />
-                                    ) : (
-                                        <FiMusic size={22} />
-                                    )}
+            {/* Songs tab */}
+            {activeTab === 'songs' && (
+                <div className="results-grid">
+                    {hasResults ? (
+                        results.items.map((track) => {
+                            const downloaded = isTrackDownloaded(track);
+                            const isDownloading = downloading[track.id];
+                            return (
+                                <div key={track.id} className="track-row">
+                                    <div className="track-art">
+                                        {track.album.images[1]?.url || track.album.images[0]?.url ? (
+                                            <img
+                                                src={track.album.images[1]?.url || track.album.images[0]?.url}
+                                                alt={track.album.name}
+                                            />
+                                        ) : (
+                                            <FiMusic size={22} />
+                                        )}
+                                    </div>
+                                    <div className="track-info">
+                                        <span className="track-name">{track.name}</span>
+                                        <span className="track-meta">{track.artists.map(a => a.name).join(', ')}</span>
+                                        <span className="track-album">{track.album.name}</span>
+                                    </div>
+                                    <button
+                                        className={`track-dl-btn ${downloaded ? 'downloaded' : ''}`}
+                                        onClick={() => !downloaded && !isDownloading && handleDownload(track)}
+                                        disabled={isDownloading || downloaded}
+                                    >
+                                        {isDownloading ? (
+                                            <><FiRefreshCw className="spin" size={14} /><span className="dl-btn-label"> Downloading</span></>
+                                        ) : downloaded ? (
+                                            <><FiCheck size={14} /><span className="dl-btn-label"> Downloaded</span></>
+                                        ) : (
+                                            <><span className="dl-btn-icon">↓</span><span className="dl-btn-label"> Download</span></>
+                                        )}
+                                    </button>
                                 </div>
-                                <div className="track-info">
-                                    <span className="track-name">{track.name}</span>
-                                    <span className="track-meta">{track.artists.map(a => a.name).join(', ')}</span>
-                                    <span className="track-album">{track.album.name}</span>
-                                </div>
-                                <button
-                                    className={`track-dl-btn ${downloaded ? 'downloaded' : ''}`}
-                                    onClick={() => !downloaded && !isDownloading && handleDownload(track)}
-                                    disabled={isDownloading || downloaded}
-                                >
-                                    {isDownloading ? (
-                                        <><FiRefreshCw className="spin" size={14} /><span className="dl-btn-label"> Downloading</span></>
-                                    ) : downloaded ? (
-                                        <><FiCheck size={14} /><span className="dl-btn-label"> Downloaded</span></>
-                                    ) : (
-                                        <><FiDownload size={14} /><span className="dl-btn-label"> Download</span></>
-                                    )}
-                                </button>
-                            </div>
-                        );
-                    })
-                ) : (
-                    !history.length && <p className="results-empty">Search for a song to get started.</p>
-                )}
-            </div>
+                            );
+                        })
+                    ) : (
+                        !history.length && <p className="results-empty">Search for a song to get started.</p>
+                    )}
+                </div>
+            )}
 
-            {hasResults && (
+            {/* Artists tab */}
+            {activeTab === 'artists' && (
+                <div className="results-cards-grid">
+                    {allResults.artists.length > 0 ? allResults.artists.map(artist => (
+                        <div
+                            key={artist.id}
+                            className="result-artist-card"
+                            onClick={() => navigate(`/search/artist/${artist.id}`)}
+                        >
+                            <div className="result-card-art">
+                                {artist.pictureUrl
+                                    ? <img src={artist.pictureUrl} alt={artist.name} />
+                                    : <FiUser size={32} />}
+                            </div>
+                            <div className="result-card-info">
+                                <span className="result-card-name">{artist.name}</span>
+                                {artist.albumCount != null && (
+                                    <span className="result-card-meta">{artist.albumCount} albums</span>
+                                )}
+                                {artist.fanCount != null && (
+                                    <span className="result-card-sub">{artist.fanCount.toLocaleString()} fans</span>
+                                )}
+                            </div>
+                        </div>
+                    )) : (
+                        <p className="results-empty">No artists found.</p>
+                    )}
+                </div>
+            )}
+
+            {/* Albums tab */}
+            {activeTab === 'albums' && (
+                <div className="results-cards-grid">
+                    {allResults.albums.length > 0 ? allResults.albums.map(album => (
+                        <div
+                            key={album.id}
+                            className="result-album-card"
+                            onClick={() => navigate(`/search/album/${album.id}`)}
+                        >
+                            <div className="result-card-art">
+                                {album.coverUrl
+                                    ? <img src={album.coverUrl} alt={album.title} />
+                                    : <FiDisc size={32} />}
+                            </div>
+                            <div className="result-card-info">
+                                <span className="result-card-name">{album.title}</span>
+                                <span className="result-card-meta">{album.artist}</span>
+                                <span className="result-card-sub">
+                                    {[album.releaseDate?.substring(0, 4), album.trackCount ? `${album.trackCount} tracks` : null]
+                                        .filter(Boolean).join(' · ')}
+                                </span>
+                            </div>
+                        </div>
+                    )) : (
+                        <p className="results-empty">No albums found.</p>
+                    )}
+                </div>
+            )}
+
+            {/* Pagination — songs tab only */}
+            {activeTab === 'songs' && hasResults && (
                 <div className="results-pagination">
                     <button onClick={() => fetchPage(results.previous)} disabled={!results.previous}>
                         Previous
@@ -368,6 +427,7 @@ const Results = () => {
                     </button>
                 </div>
             )}
+
             <MobileSearchBar
                 value={query}
                 onChange={e => setQuery(e.target.value)}

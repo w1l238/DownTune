@@ -337,6 +337,146 @@
     color: var(--sd-fg-3);
 }
 
+/* ── Tab bar ──────────────────────────────────────────────────────── */
+.results-tabs {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.results-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 1rem;
+    border-radius: var(--sd-radius-xl);
+    background: var(--sd-glass-10);
+    border: 1px solid var(--sd-glass-border-soft);
+    color: var(--sd-fg-3);
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: var(--sd-fw-medium);
+    cursor: pointer;
+    transition: all var(--sd-dur-fast) var(--sd-ease-glass);
+    backdrop-filter: blur(var(--sd-blur-sm));
+}
+
+.results-tab:hover {
+    background: var(--sd-glass-15);
+    color: white;
+}
+
+.results-tab.active {
+    background: var(--tf-accent-soft);
+    border-color: var(--sd-glass-border-strong);
+    color: white;
+    font-weight: var(--sd-fw-semibold);
+}
+
+.results-tab-badge {
+    background: var(--sd-glass-20);
+    border-radius: var(--sd-radius-pill);
+    padding: 0.05rem 0.45rem;
+    font-size: 0.72rem;
+    font-weight: var(--sd-fw-bold);
+    color: var(--sd-fg-2);
+    font-variant-numeric: tabular-nums;
+}
+
+.results-tab.active .results-tab-badge {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+/* ── Artist / Album card grids ────────────────────────────────────── */
+.results-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1rem;
+}
+
+.result-artist-card,
+.result-album-card {
+    background: var(--sd-glass-05);
+    border: 1px solid var(--sd-glass-border-soft);
+    border-radius: var(--sd-radius-lg);
+    padding: 0.85rem;
+    backdrop-filter: blur(var(--sd-blur-sm));
+    box-shadow: var(--sd-shadow-md);
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    cursor: pointer;
+    transition: all var(--sd-dur-base) var(--sd-ease-glass);
+}
+
+.result-artist-card:hover,
+.result-album-card:hover {
+    transform: translateY(-3px);
+    background: var(--sd-glass-10);
+    box-shadow: var(--sd-shadow-album-lg);
+}
+
+.result-card-art {
+    width: 100%;
+    aspect-ratio: 1;
+    box-shadow: var(--sd-shadow-album);
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--tf-accent), var(--tf-ink));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Artist portrait — circular */
+.result-artist-card .result-card-art {
+    border-radius: 50%;
+}
+
+/* Album cover — rounded square */
+.result-album-card .result-card-art {
+    border-radius: 0.85rem;
+}
+
+.result-card-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.result-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.result-card-name {
+    font-size: 0.93rem;
+    font-weight: var(--sd-fw-semibold);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--sd-fg-1);
+}
+
+.result-card-meta {
+    font-size: 0.8rem;
+    color: var(--sd-fg-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.result-card-sub {
+    font-size: 0.72rem;
+    color: var(--sd-fg-4);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .results-pagination {
     display: flex;
     gap: 0.8rem;
@@ -376,6 +516,12 @@
 
     .track-album {
         display: none;
+    }
+
+    /* Card grids — 2 columns on mobile */
+    .results-cards-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.8rem;
     }
 
     /* Download button — icon only, no text */
