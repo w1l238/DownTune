@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiSave, FiMonitor, FiDatabase, FiSettings, FiLayout, FiHardDrive, FiX, FiLoader } from 'react-icons/fi';
+import { FiSave, FiMonitor, FiDatabase, FiSettings, FiLayout, FiHardDrive, FiX, FiLoader, FiDownload } from 'react-icons/fi';
 import './css/Settings.css';
 import CustomDropdown from '../components/CustomDropdown';
 import { API_BASE_URL } from '../config';
@@ -30,6 +30,9 @@ const Settings = () => {
     const [animSpeed, setAnimSpeed] = useState(() => localStorage.getItem('app_animation_speed') || 'normal');
     const [density, setDensity] = useState(() => localStorage.getItem('app_density') || 'normal');
     const [saving, setSaving] = useState(false);
+    const [albumDownloadMode, setAlbumDownloadMode] = useState(
+        () => localStorage.getItem('download_album_mode') || 'sequential'
+    );
 
     const backgrounds = [
         { name: 'Ocean Default', value: 'linear-gradient(-45deg, #0350a2, #23a6d5, #23d5ab, #0350a2)' },
@@ -85,6 +88,7 @@ const Settings = () => {
             localStorage.setItem('app_animation_speed', animSpeed);
             applyAccent(accent);
             localStorage.setItem('app_density', density);
+            localStorage.setItem('download_album_mode', albumDownloadMode);
         } catch { /* storage quota exceeded — continue with save */ }
 
         const imageUrl = bgImageUrl.trim();
@@ -277,6 +281,31 @@ const Settings = () => {
                     <p className="field-desc">How much vertical space each song row takes in your library and album views.</p>
                 </div>
 
+            </div>
+
+            {/* Downloads */}
+            <div className="settings-section">
+                <h3 className="section-title"><FiDownload /> Downloads</h3>
+                <div className="field">
+                    <label>Album Download Mode</label>
+                    <div className="art-style-toggle">
+                        <button
+                            type="button"
+                            className={`art-style-btn${albumDownloadMode === 'sequential' ? ' active' : ''}`}
+                            onClick={() => setAlbumDownloadMode('sequential')}
+                        >
+                            Sequential
+                        </button>
+                        <button
+                            type="button"
+                            className={`art-style-btn${albumDownloadMode === 'parallel' ? ' active' : ''}`}
+                            onClick={() => setAlbumDownloadMode('parallel')}
+                        >
+                            Parallel
+                        </button>
+                    </div>
+                    <p className="field-desc">Sequential downloads one track at a time in order. Parallel fires all downloads simultaneously — faster but heavier on the server.</p>
+                </div>
             </div>
 
             {/* Library & Search */}

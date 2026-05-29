@@ -13,6 +13,8 @@ import Albums from './pages/Albums';
 import Artists from './pages/Artists';
 import Queue from './pages/Queue';
 import AlbumDetail from './pages/AlbumDetail';
+import SearchArtist from './pages/SearchArtist';
+import SearchAlbum from './pages/SearchAlbum';
 import './App.css';
 
 function Shell() {
@@ -85,6 +87,8 @@ function Shell() {
                         <Route path="/artists" element={<Artists />} />
                         <Route path="/queue" element={<Queue />} />
                         <Route path="/album/:albumName" element={<AlbumDetail />} />
+                        <Route path="/search/artist/:id" element={<SearchArtist />} />
+                        <Route path="/search/album/:id"  element={<SearchAlbum />} />
                         <Route path="/settings" element={<Settings />} />
                     </Routes>
                 </div>
