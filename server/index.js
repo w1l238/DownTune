@@ -121,17 +121,55 @@ const getSearchProvider = () => {
 app.get('/api/search', async (req, res) => {
   const query = req.query.q;
   const limit = parseInt(req.query.limit) || 10;
-  
+  const type  = req.query.type || 'tracks';
+
   if (!query) {
     return res.status(400).json({ error: 'Query parameter "q" is required.' });
   }
 
   try {
     const provider = getSearchProvider();
+    if (type === 'all' && typeof provider.searchAll === 'function') {
+      const results = await provider.searchAll(query, limit);
+      return res.json(results);
+    }
+    // Default: tracks only (backward-compatible)
     const results = await provider.search(query, limit);
     res.json(results);
   } catch (err) {
     error(`Search failed using ${process.env.SEARCH_PROVIDER || 'spotify'}:`, err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Artist detail — top tracks + albums
+app.get('/api/artist/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const provider = getSearchProvider();
+    if (typeof provider.getArtist !== 'function') {
+      return res.status(501).json({ error: 'Artist lookup not supported by current provider.' });
+    }
+    const data = await provider.getArtist(id);
+    res.json(data);
+  } catch (err) {
+    error(`Artist fetch failed for id ${id}:`, err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Album detail — all tracks
+app.get('/api/album/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const provider = getSearchProvider();
+    if (typeof provider.getAlbum !== 'function') {
+      return res.status(501).json({ error: 'Album lookup not supported by current provider.' });
+    }
+    const data = await provider.getAlbum(id);
+    res.json(data);
+  } catch (err) {
+    error(`Album fetch failed for id ${id}:`, err.message);
     res.status(500).json({ error: err.message });
   }
 });

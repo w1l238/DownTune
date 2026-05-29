@@ -16,4 +16,30 @@ export class SongProvider {
   getName() {
     throw new Error('Method getName() must be implemented.');
   }
+
+  /**
+   * Search for tracks, artists, and albums in one call.
+   * @param {string} query
+   * @param {number} limit
+   * @returns {Promise<{tracks, artists, albums}>}
+   */
+  async searchAll(query, limit) {
+    throw new Error('Method searchAll() must be implemented.');
+  }
+
+  /**
+   * Get artist details, top tracks, and albums.
+   * @param {string|number} id
+   */
+  async getArtist(id) {
+    throw new Error('Method getArtist() must be implemented.');
+  }
+
+  /**
+   * Get album details and all tracks.
+   * @param {string|number} id
+   */
+  async getAlbum(id) {
+    throw new Error('Method getAlbum() must be implemented.');
+  }
 }
