@@ -1,10 +1,47 @@
 import React, { useState, useEffect } from 'react';
-import { FiSave, FiMonitor, FiDatabase, FiSettings, FiLayout, FiHardDrive, FiX, FiLoader, FiDownload } from 'react-icons/fi';
+import { FiSave, FiDatabase, FiSettings, FiLayout, FiX, FiLoader, FiDownload, FiEye, FiEyeOff, FiRotateCcw } from 'react-icons/fi';
 import './css/Settings.css';
 import CustomDropdown from '../components/CustomDropdown';
 import { API_BASE_URL } from '../config';
+import { apiFetch } from '../utils/apiClient';
 import { useDownloads } from '../contexts/DownloadContext';
 import { ACCENT_PRESETS, SPEED_OPTIONS, applyAccent, applySpeed, applyDensity } from '../utils/appearance';
+
+function ChoicePills({ groupId, options, value, onChange, pillGroupClass }) {
+    const selected = options.find(o => o.id === value);
+    const helperId = `${groupId}-helper`;
+
+    return (
+        <div className="compact-choice-group-wrap">
+            <div
+                className={`compact-choice-group${pillGroupClass ? ' ' + pillGroupClass : ''}`}
+                role="radiogroup"
+                aria-labelledby={groupId}
+                aria-describedby={selected ? helperId : undefined}
+            >
+                {options.map(option => (
+                    <button
+                        key={option.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={value === option.id}
+                        aria-label={`${option.label}: ${option.description}`}
+                        data-description={option.description}
+                        className={`setting-choice-pill${value === option.id ? ' active' : ''}`}
+                        onClick={() => onChange(option.id)}
+                    >
+                        {option.label}
+                    </button>
+                ))}
+            </div>
+            {selected && (
+                <p id={helperId} className="choice-helper-line" aria-live="polite">
+                    <strong>{selected.label}</strong>{' — '}{selected.description}
+                </p>
+            )}
+        </div>
+    );
+}
 
 const Settings = () => {
     const { showNotification } = useDownloads();
@@ -16,6 +53,7 @@ const Settings = () => {
     const [limit, setLimit] = useState(() => parseInt(localStorage.getItem('spotify_results_limit') || '20', 10));
     const [clientId, setClientId] = useState('');
     const [clientSecret, setClientSecret] = useState('');
+    const [hasExistingSecret, setHasExistingSecret] = useState(false);
     const [downloadPath, setDownloadPath] = useState('');
     const [searchProvider, setSearchProvider] = useState('spotify');
     const [autoScan, setAutoScan] = useState(() => localStorage.getItem('auto_scan_library') === 'true');
@@ -30,9 +68,47 @@ const Settings = () => {
     const [animSpeed, setAnimSpeed] = useState(() => localStorage.getItem('app_animation_speed') || 'normal');
     const [density, setDensity] = useState(() => localStorage.getItem('app_density') || 'normal');
     const [saving, setSaving] = useState(false);
+    const [savedSettings, setSavedSettings] = useState(null);
+    const [showClientSecret, setShowClientSecret] = useState(false);
     const [albumDownloadMode, setAlbumDownloadMode] = useState(
         () => localStorage.getItem('download_album_mode') || 'sequential'
     );
+    const [audioQualityPreset, setAudioQualityPreset] = useState('high');
+    const [audioQualityPresets, setAudioQualityPresets] = useState([
+        { id: 'balanced', label: 'Balanced', description: 'Current smaller-file MP3 behavior, around 130–140 kb/s.' },
+        { id: 'high', label: 'High Quality VBR', description: 'Recommended. Better MP3 transcodes using VBR quality 0.' },
+        { id: 'max', label: '320 kb/s CBR', description: 'Largest MP3 files. Cannot restore detail beyond the YouTube source.' },
+    ]);
+    const [audioFormat, setAudioFormat] = useState('mp3');
+    const [audioFormats, setAudioFormats] = useState([
+        { id: 'mp3',  label: 'MP3',       description: 'Best compatibility. Uses the MP3 quality setting below.' },
+        { id: 'm4a',  label: 'M4A / AAC', description: 'Modern lossy format with broad support. Often closer to YouTube source audio.' },
+        { id: 'opus', label: 'Opus',      description: 'Best quality per file size. Great for streaming; older devices may not support it.' },
+        { id: 'flac', label: 'FLAC',      description: 'Large files. Does not restore YouTube source quality, but avoids another lossy output.' },
+    ]);
+
+    const createSettingsSnapshot = (overrides = {}) => ({
+        limit,
+        clientId,
+        clientSecret,
+        hasExistingSecret,
+        downloadPath,
+        searchProvider,
+        autoScan,
+        autoRefreshLibrary,
+        background,
+        bgImageUrl,
+        bgDim,
+        albumArtStyle,
+        blurBase,
+        accent,
+        animSpeed,
+        density,
+        albumDownloadMode,
+        audioFormat,
+        audioQualityPreset,
+        ...overrides,
+    });
 
     const backgrounds = [
         { name: 'Ocean Default', value: 'linear-gradient(-45deg, #0350a2, #23a6d5, #23d5ab, #0350a2)' },
@@ -52,13 +128,31 @@ const Settings = () => {
         fetch(`${API_BASE_URL}/config`)
             .then(res => res.json())
             .then(data => {
-                if (data.clientId) setClientId(data.clientId);
-                if (data.clientSecret) setClientSecret(data.clientSecret);
-                if (data.downloadPath) setDownloadPath(data.downloadPath);
-                if (data.searchProvider) setSearchProvider(data.searchProvider);
+                const loaded = {
+                    clientId: data.clientId || '',
+                    clientSecret: '',
+                    hasExistingSecret: !!data.hasClientSecret,
+                    downloadPath: data.downloadPath || '',
+                    searchProvider: data.searchProvider || 'spotify',
+                    audioQualityPreset: data.audioQualityPreset || 'high',
+                    audioFormat: data.audioFormat || 'mp3',
+                };
+
+                setClientId(loaded.clientId);
+                // Server never returns the secret value; only indicates whether one is saved
+                setHasExistingSecret(loaded.hasExistingSecret);
+                setDownloadPath(loaded.downloadPath);
+                setSearchProvider(loaded.searchProvider);
+                setAudioQualityPreset(loaded.audioQualityPreset);
+                if (Array.isArray(data.audioQualityPresets)) setAudioQualityPresets(data.audioQualityPresets);
+                setAudioFormat(loaded.audioFormat);
+                if (Array.isArray(data.audioFormats)) setAudioFormats(data.audioFormats);
+                setSavedSettings(createSettingsSnapshot(loaded));
             })
-            .catch(() => {});
-    }, []);
+            .catch(() => {
+                setSavedSettings(createSettingsSnapshot({ clientSecret: '' }));
+            });
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const applyBlur = (base) => {
         const r = document.documentElement.style;
@@ -68,20 +162,73 @@ const Settings = () => {
         r.setProperty('--sd-blur-xl', `${base * 2}px`);
     };
 
+    const applyBackgroundPreview = (imageUrl, gradient, dimness) => {
+        if (imageUrl) {
+            document.body.style.background = `url(${imageUrl}) center / cover fixed`;
+            document.body.style.animation = 'none';
+            document.body.style.setProperty('--bg-dim', dimness);
+        } else {
+            document.body.style.background = '';
+            document.body.style.animation = '';
+            document.documentElement.style.setProperty('--app-background', gradient);
+            document.body.style.setProperty('--bg-dim', '0');
+        }
+    };
+
+    const currentSettings = createSettingsSnapshot();
+    const hasUnsavedChanges = !!savedSettings && JSON.stringify(currentSettings) !== JSON.stringify(savedSettings);
+    const selectedAudioFormatLabel = audioFormats.find(format => format.id === audioFormat)?.label || audioFormat.toUpperCase();
+    const providerHelperText = searchProvider === 'spotify'
+        ? 'Uses Spotify search and requires Spotify API credentials below.'
+        : 'Uses Deezer search. No Spotify API credentials required.';
+    const spotifyStatus = hasExistingSecret || clientSecret ? 'Configured' : 'Needs credentials';
+
+    const handleReset = () => {
+        if (!savedSettings) return;
+        setLimit(savedSettings.limit);
+        setClientId(savedSettings.clientId);
+        setClientSecret('');
+        setShowClientSecret(false);
+        setHasExistingSecret(savedSettings.hasExistingSecret);
+        setDownloadPath(savedSettings.downloadPath);
+        setSearchProvider(savedSettings.searchProvider);
+        setAutoScan(savedSettings.autoScan);
+        setAutoRefreshLibrary(savedSettings.autoRefreshLibrary);
+        setBackground(savedSettings.background);
+        setBgImageUrl(savedSettings.bgImageUrl);
+        setAppliedBgImage(savedSettings.bgImageUrl);
+        setBgDim(savedSettings.bgImageUrl ? savedSettings.bgDim : 0);
+        setAlbumArtStyle(savedSettings.albumArtStyle);
+        setBlurBase(savedSettings.blurBase);
+        setAccent(savedSettings.accent);
+        setAnimSpeed(savedSettings.animSpeed);
+        setDensity(savedSettings.density);
+        setAlbumDownloadMode(savedSettings.albumDownloadMode);
+        setAudioFormat(savedSettings.audioFormat);
+        setAudioQualityPreset(savedSettings.audioQualityPreset);
+        applyAccent(savedSettings.accent);
+        applySpeed(savedSettings.animSpeed);
+        applyDensity(savedSettings.density);
+        applyBlur(savedSettings.blurBase);
+        applyBackgroundPreview(savedSettings.bgImageUrl, savedSettings.background, savedSettings.bgDim);
+    };
+
     const handleSave = async () => {
         if (limit < 1 || limit > 50) {
             showNotification('Results limit must be between 1 and 50.', 'error');
             return;
         }
         setSaving(true);
+        const imageUrl = bgImageUrl.trim();
+        const savedBgDim = imageUrl ? bgDim : 0;
 
         try {
             localStorage.setItem('spotify_results_limit', limit);
             localStorage.setItem('auto_scan_library', autoScan);
             localStorage.setItem('auto_refresh_library', autoRefreshLibrary);
             localStorage.setItem('app_background', background);
-            localStorage.setItem('app_bg_image', bgImageUrl.trim());
-            localStorage.setItem('app_bg_dim', bgDim);
+            localStorage.setItem('app_bg_image', imageUrl);
+            localStorage.setItem('app_bg_dim', savedBgDim);
             localStorage.setItem('album_art_style', albumArtStyle);
             localStorage.setItem('app_blur_base', blurBase);
             localStorage.setItem('app_accent', accent);
@@ -91,7 +238,6 @@ const Settings = () => {
             localStorage.setItem('download_album_mode', albumDownloadMode);
         } catch { /* storage quota exceeded — continue with save */ }
 
-        const imageUrl = bgImageUrl.trim();
         setAppliedBgImage(imageUrl);
         if (imageUrl) {
             document.body.style.background = `url(${imageUrl}) center / cover fixed`;
@@ -106,19 +252,26 @@ const Settings = () => {
         }
 
         try {
-            const response = await fetch(`${API_BASE_URL}/config`, {
+            // Send blank clientSecret to signal "keep existing"; server preserves it
+            await apiFetch('/config', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ clientId, clientSecret, downloadPath, searchProvider }),
+                body: { clientId, clientSecret, downloadPath, searchProvider, audioFormat, audioQualityPreset },
             });
-            if (response.ok) {
-                showNotification('Settings saved!', 'success');
-            } else {
-                const err = await response.json();
-                showNotification(`Error saving config: ${err.error}`, 'error');
-            }
-        } catch {
-            showNotification('Network error while saving config.', 'error');
+            const nextHasExistingSecret = clientSecret ? true : hasExistingSecret;
+            setHasExistingSecret(nextHasExistingSecret);
+            setClientSecret('');
+            setShowClientSecret(false);
+            setBgImageUrl(imageUrl);
+            setBgDim(savedBgDim);
+            setSavedSettings(createSettingsSnapshot({
+                clientSecret: '',
+                hasExistingSecret: nextHasExistingSecret,
+                bgImageUrl: imageUrl,
+                bgDim: savedBgDim,
+            }));
+            showNotification('Settings saved!', 'success');
+        } catch (err) {
+            showNotification(`Error saving config: ${err.message}`, 'error');
         } finally {
             setSaving(false);
         }
@@ -130,7 +283,10 @@ const Settings = () => {
 
             {/* Appearance */}
             <div className="settings-section">
-                <h3 className="section-title"><FiLayout /> Appearance</h3>
+                <div className="section-heading">
+                    <h3 className="section-title"><FiLayout /> Appearance</h3>
+                    <p className="section-summary">{accent} accent · {density} density · {animSpeed} motion</p>
+                </div>
                 <div className={`field${bgImageUrl ? ' field-disabled' : ''}`}>
                     <label>Background Gradient</label>
                     <CustomDropdown
@@ -285,7 +441,10 @@ const Settings = () => {
 
             {/* Downloads */}
             <div className="settings-section">
-                <h3 className="section-title"><FiDownload /> Downloads</h3>
+                <div className="section-heading">
+                    <h3 className="section-title"><FiDownload /> Downloads</h3>
+                    <p className="section-summary">{selectedAudioFormatLabel} output · {downloadPath || 'Default location'}</p>
+                </div>
                 <div className="field">
                     <label>Album Download Mode</label>
                     <div className="art-style-toggle">
@@ -306,11 +465,37 @@ const Settings = () => {
                     </div>
                     <p className="field-desc">Sequential downloads one track at a time in order. Parallel fires all downloads simultaneously — faster but heavier on the server.</p>
                 </div>
+                <div className="field">
+                    <label id="audio-format-label">Audio Format</label>
+                    <ChoicePills
+                        groupId="audio-format-label"
+                        options={audioFormats}
+                        value={audioFormat}
+                        onChange={setAudioFormat}
+                        pillGroupClass="wrap-2x2"
+                    />
+                    <p className="field-desc">Output format for downloaded audio. YouTube source is already lossy — format choice affects encoding, not source quality.</p>
+                </div>
+                {audioFormat === 'mp3' && (
+                <div className="field">
+                    <label id="audio-quality-label">MP3 Quality</label>
+                    <ChoicePills
+                        groupId="audio-quality-label"
+                        options={audioQualityPresets}
+                        value={audioQualityPreset}
+                        onChange={setAudioQualityPreset}
+                    />
+                    <p className="field-desc">MP3 transcode quality. Source audio is still limited by YouTube&apos;s available stream.</p>
+                </div>
+                )}
             </div>
 
             {/* Library & Search */}
             <div className="settings-section">
-                <h3 className="section-title"><FiDatabase /> Library & Search</h3>
+                <div className="section-heading">
+                    <h3 className="section-title"><FiDatabase /> Library & Search</h3>
+                    <p className="section-summary">{searchProvider === 'spotify' ? 'Spotify' : 'Deezer'} provider · {limit} results</p>
+                </div>
                 <div className="field">
                     <label>Download Location</label>
                     <input
@@ -333,7 +518,7 @@ const Settings = () => {
                         onChange={setSearchProvider}
                         onToggle={() => {}}
                     />
-                    <p className="field-desc">Choose which service to use for searching songs.</p>
+                    <p className="field-desc">{providerHelperText}</p>
                 </div>
                 <div className="field">
                     <label>Search Results Limit</label>
@@ -374,41 +559,69 @@ const Settings = () => {
             </div>
 
             {/* Spotify API */}
-            <div className={`settings-section ${searchProvider !== 'spotify' ? 'disabled' : ''}`}>
-                <h3 className="section-title"><FiSettings /> Spotify API</h3>
-                <div className="field">
-                    <label>Client ID</label>
-                    <input
-                        type="text"
-                        className="settings-input"
-                        value={clientId}
-                        onChange={(e) => setClientId(e.target.value)}
-                        placeholder="Enter your Spotify Client ID"
-                        disabled={searchProvider !== 'spotify'}
-                    />
+            {searchProvider === 'spotify' && (
+                <div className="settings-section">
+                    <div className="section-heading">
+                        <h3 className="section-title"><FiSettings /> Spotify API</h3>
+                        <p className={`section-summary${spotifyStatus === 'Needs credentials' ? ' warning' : ''}`}>{spotifyStatus}</p>
+                    </div>
+                    <p className="field-desc">Required for Spotify search results. Stored secrets are never displayed.</p>
+                    <div className="field">
+                        <label>Client ID</label>
+                        <input
+                            type="text"
+                            className="settings-input"
+                            value={clientId}
+                            onChange={(e) => setClientId(e.target.value)}
+                            placeholder="Enter your Spotify Client ID"
+                        />
+                    </div>
+                    <div className="field">
+                        <label>Client Secret</label>
+                        <div className="secret-input-row">
+                            <input
+                                type={showClientSecret && clientSecret ? 'text' : 'password'}
+                                className="settings-input"
+                                value={clientSecret}
+                                onChange={(e) => setClientSecret(e.target.value)}
+                                placeholder={hasExistingSecret ? 'Configured — leave blank to keep existing secret' : 'Enter your Spotify Client Secret'}
+                            />
+                            {clientSecret && (
+                                <button
+                                    type="button"
+                                    className="secret-toggle"
+                                    onClick={() => setShowClientSecret(value => !value)}
+                                    aria-label={showClientSecret ? 'Hide newly typed Spotify secret' : 'Show newly typed Spotify secret'}
+                                    title={showClientSecret ? 'Hide newly typed secret' : 'Show newly typed secret'}
+                                >
+                                    {showClientSecret ? <FiEyeOff size={15} /> : <FiEye size={15} />}
+                                </button>
+                            )}
+                        </div>
+                        <p className="field-desc">
+                            {clientSecret
+                                ? 'New secret will replace the saved value when you save.'
+                                : hasExistingSecret
+                                    ? 'A secret is saved. Leave blank to keep it, or type a new value to replace it.'
+                                    : 'Required for Spotify search.'}
+                        </p>
+                    </div>
                 </div>
-                <div className="field">
-                    <label>Client Secret</label>
-                    <input
-                        type="password"
-                        className="settings-input"
-                        value={clientSecret}
-                        onChange={(e) => setClientSecret(e.target.value)}
-                        placeholder="Enter your Spotify Client Secret"
-                        disabled={searchProvider !== 'spotify'}
-                    />
-                    <p className="field-desc">
-                        {searchProvider === 'spotify'
-                            ? 'Required for searching songs on Spotify.'
-                            : 'Only required if Spotify is selected as the provider.'}
-                    </p>
+            )}
+
+            <div className={`settings-save-bar${hasUnsavedChanges ? ' dirty' : ''}`}>
+                <span className="save-status">{hasUnsavedChanges ? 'Unsaved changes' : 'All changes saved'}</span>
+                <div className="save-actions">
+                    <button className="btn-reset" type="button" onClick={handleReset} disabled={!hasUnsavedChanges || saving}>
+                        <FiRotateCcw />
+                        Reset
+                    </button>
+                    <button className="btn-save" onClick={handleSave} disabled={!hasUnsavedChanges || saving}>
+                        {saving ? <FiLoader className="btn-save-spin" /> : <FiSave />}
+                        {saving ? 'Saving…' : 'Save Changes'}
+                    </button>
                 </div>
             </div>
-
-            <button className="btn-save" onClick={handleSave} disabled={saving}>
-                {saving ? <FiLoader className="btn-save-spin" /> : <FiSave />}
-                {saving ? 'Saving…' : 'Save Changes'}
-            </button>
         </div>
     );
 };
