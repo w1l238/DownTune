@@ -5,6 +5,7 @@ import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path'; // Import path module
 import { fileURLToPath } from 'url';
+import { randomBytes } from 'crypto';
 import { info, error, warning } from './logger.js';
 
 process.on('exit', (code) => {
@@ -22,9 +23,27 @@ const getBaseDownloadPath = () => {
 };
 
 import { spawn } from 'child_process';
-import NodeID3 from 'node-id3';
+import { audioMetadataWriter } from './services/AudioMetadataWriter.js';
+import { fetchArtworkTags, lookupArtworkUrl } from './services/artworkService.js';
+import rateLimit from 'express-rate-limit';
 import { getLibrary, refreshLibrary, deleteSong, getSongArt, updateSongMetadata, toggleFavorite, bulkLike, bulkDelete } from './libraryManager.js';
 import { runYtDlp } from './utils/yt-dlp-helper.js';
+import { isWithinDirectory } from './utils/path-helper.js';
+import {
+  DEFAULT_AUDIO_QUALITY_PRESET,
+  getAudioQualityPreset,
+  getAudioQualityPresetOptions,
+  getYtDlpAudioQualityArgs,
+  validateAudioQualityPreset,
+} from './utils/audio-quality.js';
+import {
+  DEFAULT_AUDIO_FORMAT,
+  getAudioFormat,
+  getAudioFormatConfig,
+  getAudioFormatOptions,
+  getYtDlpAudioFormatArgs,
+  validateAudioFormat,
+} from './utils/audio-format.js';
 import { SpotifyProvider } from './providers/SpotifyProvider.js';
 import { YoutubeMusicProvider } from './providers/YoutubeMusicProvider.js';
 import { DeezerProvider } from './providers/DeezerProvider.js';
@@ -38,6 +57,75 @@ const port = parseInt(process.env.PORT || '3001', 10);
 const corsOrigin = process.env.ALLOWED_ORIGIN || '*';
 app.use(cors({ origin: corsOrigin }));
 app.use(express.json());
+
+// CSRF / same-origin guard: one token per server process; clients fetch via
+// GET /api/csrf-token then echo it on mutations. Origin/Referer checks block
+// browser-based cross-site writes even if a deployment keeps permissive CORS.
+const csrfToken = randomBytes(32).toString('hex');
+const allowedMutationOrigins = new Set([
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3001',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+]);
+if (corsOrigin && corsOrigin !== '*') {
+  corsOrigin.split(',').map(origin => origin.trim()).filter(Boolean).forEach(origin => allowedMutationOrigins.add(origin));
+}
+
+const isAllowedMutationOrigin = (req) => {
+  const originHeader = req.get('origin') || req.get('referer');
+  if (!originHeader) return true; // non-browser clients / curl
+  try {
+    const origin = new URL(originHeader).origin;
+    return allowedMutationOrigins.has(origin);
+  } catch {
+    return false;
+  }
+};
+
+const requireCsrf = (req, res, next) => {
+  if (!isAllowedMutationOrigin(req)) {
+    return res.status(403).json({ error: 'Cross-origin write blocked.' });
+  }
+  if (req.headers['x-csrf-token'] !== csrfToken) {
+    return res.status(403).json({ error: 'Invalid or missing CSRF token.' });
+  }
+  next();
+};
+
+// Escape HTML special chars to prevent reflected XSS in HTML responses
+const htmlEscape = (str) => String(str)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#x27;');
+
+const rejectEnvNewlines = (value, fieldName) => {
+  if (value == null) return value;
+  const str = String(value);
+  if (/[\r\n]/.test(str)) {
+    const err = new Error(`${fieldName} cannot contain newlines.`);
+    err.status = 400;
+    throw err;
+  }
+  return str;
+};
+
+const requireSameOriginRead = (req, res, next) => {
+  if (!isAllowedMutationOrigin(req)) {
+    return res.status(403).json({ error: 'Cross-origin read blocked.' });
+  }
+  next();
+};
+
+// Rate limiters for expensive endpoints
+const downloadLimiter = rateLimit({ windowMs: 10 * 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false });
+const proxyLimiter   = rateLimit({ windowMs: 60 * 1000,       limit: 120, standardHeaders: true, legacyHeaders: false });
+const searchLimiter  = rateLimit({ windowMs: 60 * 1000,       limit: 30,  standardHeaders: true, legacyHeaders: false });
+const scanLimiter    = rateLimit({ windowMs: 60 * 1000,       limit: 5,   standardHeaders: true, legacyHeaders: false });
 
 let spotifyAccessToken = '';
 let tokenExpiryTime = 0;
@@ -110,15 +198,19 @@ app.use(async (req, res, next) => {
 const getSearchProvider = () => {
   const providerType = process.env.SEARCH_PROVIDER || 'spotify';
   const type = providerType.toLowerCase();
-  
-  if (type === 'deezer' || type === 'youtube') {
-    return new DeezerProvider();
-  }
+
+  if (type === 'youtube') return new YoutubeMusicProvider();
+  if (type === 'deezer') return new DeezerProvider();
   return new SpotifyProvider(spotifyAccessToken);
 };
 
+// Safe bootstrap endpoint — returns CSRF token; no side effects
+app.get('/api/csrf-token', (req, res) => {
+  res.json({ token: csrfToken });
+});
+
 // Generic Search Endpoint
-app.get('/api/search', async (req, res) => {
+app.get('/api/search', searchLimiter, async (req, res) => {
   const query = req.query.q;
   const limit = parseInt(req.query.limit) || 10;
   const type  = req.query.type || 'tracks';
@@ -199,7 +291,7 @@ const sanitizeFilename = (name) => {
 };
 
 // Endpoint to create folder structure
-app.post('/create-folder-structure', async (req, res) => {
+app.post('/create-folder-structure', requireCsrf, async (req, res) => {
   info(`Received request to create folder structure for artist: "${req.body.artistName}", album: "${req.body.albumName}"`);
   const { artistName, albumName } = req.body;
 
@@ -225,15 +317,33 @@ app.post('/create-folder-structure', async (req, res) => {
   }
 });
 
-app.get('/api/proxy', async (req, res) => {
+const PROXY_ALLOWLIST = new Set(['api.spotify.com', 'api.deezer.com']);
+
+app.get('/api/proxy', proxyLimiter, async (req, res) => {
   const { url } = req.query;
   if (!url) {
     return res.status(400).json({ error: 'URL parameter is required.' });
   }
 
-  info(`Proxy request to: ${url}`);
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    return res.status(400).json({ error: 'Invalid URL.' });
+  }
 
-  const isSpotify = url.includes('api.spotify.com');
+  if (parsedUrl.protocol !== 'https:') {
+    return res.status(400).json({ error: 'Only HTTPS URLs are allowed.' });
+  }
+
+  if (!PROXY_ALLOWLIST.has(parsedUrl.hostname)) {
+    return res.status(403).json({ error: 'Host not allowed.' });
+  }
+
+  info(`Proxy request to: ${parsedUrl.hostname}${parsedUrl.pathname}`);
+
+  const isSpotify = parsedUrl.hostname === 'api.spotify.com';
+  const isDeezer  = parsedUrl.hostname === 'api.deezer.com';
   const headers = {};
 
   if (isSpotify) {
@@ -248,7 +358,6 @@ app.get('/api/proxy', async (req, res) => {
     const data = await response.json();
 
     if (response.ok) {
-      // Map results to unified format if it's a pagination call
       if (isSpotify && data.tracks) {
         return res.json({
           items: data.tracks.items,
@@ -256,47 +365,45 @@ app.get('/api/proxy', async (req, res) => {
           previous: data.tracks.previous
         });
       } else if (isSpotify && data.items) {
-          // If it's a direct tracks page from Spotify
-          return res.json({
-            items: data.items,
-            next: data.next,
-            previous: data.previous
-          });
-      } else if (url.includes('api.deezer.com')) {
-          // Map Deezer pagination
-          const items = (data.data || []).map(track => ({
-            id: `deezer-${track.id}`,
-            name: track.title,
-            artists: [{ name: track.artist.name }],
-            album: {
-              name: track.album.title,
-              images: [
-                { url: track.album.cover_xl, height: 1000, width: 1000 },
-                { url: track.album.cover_medium, height: 250, width: 250 },
-                { url: track.album.cover_small, height: 56, width: 56 }
-              ].filter(img => img.url)
-            },
-            isDeezer: true,
-            url: track.link
-          }));
-          return res.json({
-            items,
-            next: data.next,
-            previous: data.prev
-          });
+        return res.json({
+          items: data.items,
+          next: data.next,
+          previous: data.previous
+        });
+      } else if (isDeezer) {
+        const items = (data.data || []).map(track => ({
+          id: `deezer-${track.id}`,
+          name: track.title,
+          artists: [{ name: track.artist.name }],
+          album: {
+            name: track.album.title,
+            images: [
+              { url: track.album.cover_xl, height: 1000, width: 1000 },
+              { url: track.album.cover_medium, height: 250, width: 250 },
+              { url: track.album.cover_small, height: 56, width: 56 }
+            ].filter(img => img.url)
+          },
+          isDeezer: true,
+          url: track.link
+        }));
+        return res.json({
+          items,
+          next: data.next,
+          previous: data.prev
+        });
       }
       res.json(data);
     } else {
-      error(`Error proxying request to ${url}:`, data);
+      error(`Proxy error from ${parsedUrl.hostname}:`, data);
       res.status(response.status).json({ error: data.error?.message || 'Error proxying request' });
     }
-  } catch (error) {
-    error(`Network error while proxying request to ${url}:`, error);
+  } catch (err) {
+    error(`Network error proxying to ${parsedUrl.hostname}:`, err);
     res.status(500).json({ error: 'Network error while proxying request' });
   }
 });
 
-app.post('/download-song', async (req, res) => {
+app.post('/download-song', requireCsrf, downloadLimiter, async (req, res) => {
   let { trackName, artistName, albumName, albumArtUrl, year, trackNumber, genre, isYoutube, isDeezer, url: videoUrl } = req.body;
   info(`Download Task: "${trackName}" by "${artistName}" from album "${albumName}"`);
 
@@ -396,13 +503,57 @@ app.post('/download-song', async (req, res) => {
     const safeAlbumName = sanitizeFilename(albumName);
     const safeTrackName = sanitizeFilename(trackName);
 
+    const audioFormat = getAudioFormat();
+    const audioFormatConfig = getAudioFormatConfig(audioFormat);
+
     const targetFolderPath = path.join(baseDownloadPath, safeArtistName, safeAlbumName);
-    const outputFilePath = path.join(targetFolderPath, `${safeTrackName}.mp3`);
+    const outputFilePath = path.join(targetFolderPath, `${safeTrackName}.${audioFormatConfig.extension}`);
+
+    if (!isWithinDirectory(baseDownloadPath, targetFolderPath) || !isWithinDirectory(baseDownloadPath, outputFilePath)) {
+      return res.status(400).json({ error: 'Invalid download path.' });
+    }
 
     // Check if the file already exists
     try {
       await fs.access(outputFilePath);
       info(`Song exists, skipping download: ${outputFilePath}`);
+
+      // Repair missing artwork for existing files (e.g. Opus files downloaded before
+      // artwork support was added). Only triggered when cover.jpg is absent, since
+      // cover.jpg and ARTWORK_URL are always written together by the new code.
+      if (albumArtUrl) {
+        const ext = `.${audioFormatConfig.extension}`;
+        const coverPath = path.join(targetFolderPath, 'cover.jpg');
+        let coverMissing = false;
+        try { await fs.access(coverPath); } catch { coverMissing = true; }
+
+        if (coverMissing) {
+          try {
+            const artAdditions = await fetchArtworkTags(albumArtUrl, targetFolderPath, ext);
+            // For non-embeddable formats (Opus): artAdditions.artworkUrl is set.
+            // Write it back into the file as an ARTWORK_URL Vorbis comment so the
+            // library scan can surface it as song.artworkUrl.
+            if (artAdditions.artworkUrl) {
+              const repairTags = {
+                title: trackName,
+                artist: artistName,
+                album: albumName,
+                year: String(year || ''),
+                trackNumber: String(trackNumber || ''),
+                genre: String(genre || ''),
+                artworkUrl: artAdditions.artworkUrl,
+              };
+              await audioMetadataWriter.updateAudioMetadata(outputFilePath, repairTags).catch(e =>
+                warning(`Artwork repair: metadata update failed: ${e.message}`)
+              );
+              refreshLibrary().catch(err => error(`Library refresh failed: ${err.message}`));
+            }
+          } catch (e) {
+            warning(`Artwork repair failed: ${e.message}`);
+          }
+        }
+      }
+
       return res.status(200).json({ status: 'exists', message: 'Song already downloaded' });
     } catch (error) {
       // File does not exist, proceed with download
@@ -412,11 +563,17 @@ app.post('/download-song', async (req, res) => {
       await fs.mkdir(targetFolderPath, { recursive: true });
       info(`Downloading from YouTube: ${videoUrl}`);
 
-      // Download audio and convert to MP3 using runYtDlp
+      // Download audio using yt-dlp with the selected format
+      const audioQualityPreset = getAudioQualityPreset();
+      info(`Using audio format: ${audioFormat}${audioFormatConfig.supportsMp3QualityPreset ? `, quality preset: ${audioQualityPreset}` : ''}`);
+      const qualityOrMetaArgs = audioFormatConfig.supportsMp3QualityPreset
+        ? getYtDlpAudioQualityArgs(audioQualityPreset)
+        : [];
       const downloadArgs = [
         videoUrl,
         '-x',
-        '--audio-format', 'mp3',
+        ...getYtDlpAudioFormatArgs(audioFormat),
+        ...qualityOrMetaArgs,
         '--output', outputFilePath,
       ];
 
@@ -461,30 +618,16 @@ app.post('/download-song', async (req, res) => {
   lyrics      : ${lyrics ? `yes (${lyrics.length} chars)` : '— (not found)'}`);
 
       if (albumArtUrl) {
-        try {
-          const imageResponse = await fetch(albumArtUrl);
-          const imageBuffer = await imageResponse.arrayBuffer();
-          tags.image = {
-            mime: 'image/jpeg', // Assuming JPEG, but could be dynamic
-            type: {
-              id: 3,
-              name: 'front cover'
-            },
-            description: 'Album Art',
-            imageBuffer: Buffer.from(imageBuffer)
-          };
-          // info('Album art attached.');
-        } catch (imageError) {
-          error(`Failed to fetch album art: ${imageError.message}`);
-        }
+        const dlExt = `.${audioFormatConfig.extension}`;
+        const artAdditions = await fetchArtworkTags(albumArtUrl, targetFolderPath, dlExt);
+        Object.assign(tags, artAdditions);
       }
 
-      await NodeID3.Promise.write(tags, outputFilePath);
-      info(`ID3 tags written for "${trackName}"`);
+      await audioMetadataWriter.writeAudioMetadata(outputFilePath, tags);
 
       info(`Completed download: ${outputFilePath}`);
       refreshLibrary().catch(err => error(`Library refresh failed: ${err.message}`));
-      res.json({ message: 'Song downloaded and converted successfully', filePath: outputFilePath });
+      res.json({ message: 'Song downloaded and converted successfully' });
     } catch (err) {
       error(`Download failure for "${trackName}": ${err.message}`);
       res.status(500).json({ error: 'An error occurred during song download.' });
@@ -500,7 +643,7 @@ app.post('/download-song', async (req, res) => {
 // Structure:
 // SPOTIFY_CLIENT_ID - Client ID from spotify
 // SPOTIFY_CLIENT_SECRET - Client Secret from spotify
-app.get('/config', async (req, res) => {
+app.get('/config', requireSameOriginRead, async (req, res) => {
   try {
     const envPath = path.join(__dirname, '.env');
     const envContent = await fs.readFile(envPath, 'utf-8');
@@ -509,17 +652,32 @@ app.get('/config', async (req, res) => {
       const [key, value] = line.split('=');
       if (key && value) {
         if (key.trim() === 'SPOTIFY_CLIENT_ID') config.clientId = value.trim();
-        if (key.trim() === 'SPOTIFY_CLIENT_SECRET') config.clientSecret = value.trim();
+        if (key.trim() === 'SPOTIFY_CLIENT_SECRET') config.hasClientSecret = !!value.trim();
         if (key.trim() === 'DOWNLOAD_PATH') config.downloadPath = value.trim();
         if (key.trim() === 'SEARCH_PROVIDER') config.searchProvider = value.trim();
+        if (key.trim() === 'AUDIO_QUALITY_PRESET') config.audioQualityPreset = value.trim();
+        if (key.trim() === 'AUDIO_FORMAT') config.audioFormat = value.trim();
       }
     });
     // Default to spotify if not set
     if (!config.searchProvider) config.searchProvider = 'spotify';
+    config.audioQualityPreset = getAudioQualityPreset(config.audioQualityPreset);
+    config.audioQualityPresets = getAudioQualityPresetOptions();
+    config.audioFormat = getAudioFormat(config.audioFormat);
+    config.audioFormats = getAudioFormatOptions();
     res.json(config);
   } catch (error) {
     if (error.code === 'ENOENT') {
-      res.json({ clientId: '', clientSecret: '', downloadPath: '', searchProvider: 'spotify' });
+      res.json({
+        clientId: '',
+        hasClientSecret: false,
+        downloadPath: '',
+        searchProvider: 'spotify',
+        audioQualityPreset: DEFAULT_AUDIO_QUALITY_PRESET,
+        audioQualityPresets: getAudioQualityPresetOptions(),
+        audioFormat: DEFAULT_AUDIO_FORMAT,
+        audioFormats: getAudioFormatOptions(),
+      });
     } else {
       error('Error reading .env file:', error);
       res.status(500).json({ error: 'Failed to read configuration.' });
@@ -528,10 +686,27 @@ app.get('/config', async (req, res) => {
 });
 
 // Endpoint to update environment variables
-app.post('/config', async (req, res) => {
-  const { clientId, clientSecret, downloadPath, searchProvider } = req.body;
-  
-  if (searchProvider === 'spotify' && (!clientId || !clientSecret)) {
+app.post('/config', requireCsrf, async (req, res) => {
+  let { clientId, clientSecret, downloadPath, searchProvider, audioQualityPreset, audioFormat } = req.body;
+
+  try {
+    clientId = rejectEnvNewlines(clientId || '', 'clientId');
+    clientSecret = rejectEnvNewlines(clientSecret || '', 'clientSecret');
+    downloadPath = downloadPath ? rejectEnvNewlines(downloadPath, 'downloadPath') : '';
+    searchProvider = rejectEnvNewlines(searchProvider || 'spotify', 'searchProvider');
+    audioQualityPreset = rejectEnvNewlines(audioQualityPreset || DEFAULT_AUDIO_QUALITY_PRESET, 'audioQualityPreset');
+    audioQualityPreset = validateAudioQualityPreset(audioQualityPreset);
+    audioFormat = rejectEnvNewlines(audioFormat || DEFAULT_AUDIO_FORMAT, 'audioFormat');
+    audioFormat = validateAudioFormat(audioFormat);
+  } catch (err) {
+    return res.status(err.status || 400).json({ error: err.message });
+  }
+
+  // If clientSecret is blank the frontend is preserving the existing value
+  const existingSecret = process.env.SPOTIFY_CLIENT_SECRET || '';
+  const effectiveSecret = clientSecret || existingSecret;
+
+  if (searchProvider === 'spotify' && (!clientId || !effectiveSecret)) {
     return res.status(400).json({ error: 'Client ID and Secret are required for Spotify.' });
   }
 
@@ -545,7 +720,7 @@ app.post('/config', async (req, res) => {
     }
 
     const newLines = [];
-    const keysFound = { clientId: false, clientSecret: false, downloadPath: false, searchProvider: false };
+    const keysFound = { clientId: false, clientSecret: false, downloadPath: false, searchProvider: false, audioQualityPreset: false, audioFormat: false };
 
     envContent.split('\n').forEach(line => {
       const [key] = line.split('=');
@@ -554,7 +729,7 @@ app.post('/config', async (req, res) => {
         newLines.push(`SPOTIFY_CLIENT_ID=${clientId || ''}`);
         keysFound.clientId = true;
       } else if (trimmedKey === 'SPOTIFY_CLIENT_SECRET') {
-        newLines.push(`SPOTIFY_CLIENT_SECRET=${clientSecret || ''}`);
+        newLines.push(`SPOTIFY_CLIENT_SECRET=${effectiveSecret}`);
         keysFound.clientSecret = true;
       } else if (trimmedKey === 'DOWNLOAD_PATH') {
         if (downloadPath) {
@@ -564,24 +739,34 @@ app.post('/config', async (req, res) => {
       } else if (trimmedKey === 'SEARCH_PROVIDER') {
         newLines.push(`SEARCH_PROVIDER=${searchProvider || 'spotify'}`);
         keysFound.searchProvider = true;
+      } else if (trimmedKey === 'AUDIO_QUALITY_PRESET') {
+        newLines.push(`AUDIO_QUALITY_PRESET=${audioQualityPreset}`);
+        keysFound.audioQualityPreset = true;
+      } else if (trimmedKey === 'AUDIO_FORMAT') {
+        newLines.push(`AUDIO_FORMAT=${audioFormat}`);
+        keysFound.audioFormat = true;
       } else if (line.trim() !== '') {
         newLines.push(line);
       }
     });
 
     if (!keysFound.clientId) newLines.push(`SPOTIFY_CLIENT_ID=${clientId || ''}`);
-    if (!keysFound.clientSecret) newLines.push(`SPOTIFY_CLIENT_SECRET=${clientSecret || ''}`);
+    if (!keysFound.clientSecret) newLines.push(`SPOTIFY_CLIENT_SECRET=${effectiveSecret}`);
     if (!keysFound.downloadPath && downloadPath) newLines.push(`DOWNLOAD_PATH=${downloadPath}`);
     if (!keysFound.searchProvider) newLines.push(`SEARCH_PROVIDER=${searchProvider || 'spotify'}`);
+    if (!keysFound.audioQualityPreset) newLines.push(`AUDIO_QUALITY_PRESET=${audioQualityPreset}`);
+    if (!keysFound.audioFormat) newLines.push(`AUDIO_FORMAT=${audioFormat}`);
 
     await fs.writeFile(envPath, newLines.join('\n'));
 
     process.env.SPOTIFY_CLIENT_ID = clientId;
-    process.env.SPOTIFY_CLIENT_SECRET = clientSecret;
+    process.env.SPOTIFY_CLIENT_SECRET = effectiveSecret;
     if (downloadPath) process.env.DOWNLOAD_PATH = downloadPath;
     if (searchProvider) process.env.SEARCH_PROVIDER = searchProvider;
+    process.env.AUDIO_QUALITY_PRESET = audioQualityPreset;
+    process.env.AUDIO_FORMAT = audioFormat;
 
-    if (clientId && clientSecret) {
+    if (clientId && effectiveSecret) {
       await getSpotifyAccessToken();
     }
 
@@ -605,7 +790,7 @@ app.get('/api/library', async (req, res) => {
   }
 });
 
-app.get('/api/library/scan', async (req, res) => {
+app.get('/api/library/scan', scanLimiter, async (req, res) => {
   try {
     info('Scanning local library for changes...');
     const library = await refreshLibrary();
@@ -620,7 +805,40 @@ app.get('/api/library/scan', async (req, res) => {
 app.get('/api/files/:id/art', async (req, res) => {
     const { id } = req.params;
     try {
-        const art = await getSongArt(id);
+        let art = await getSongArt(id);
+        if (!art) {
+            // Old Opus/non-MP3 files may have no embedded art, no ARTWORK_URL,
+            // and no cover.jpg because they were downloaded before fallback art
+            // support existed. Repair on demand when the UI asks for art.
+            const library = await getLibrary();
+            const song = library.find(s => s.id === id);
+            if (song) {
+                const artworkUrl = await lookupArtworkUrl(song);
+                if (artworkUrl) {
+                    const baseDownloadPath = getBaseDownloadPath();
+                    const relPath = Buffer.from(id, 'base64').toString('utf-8');
+                    const fullFilePath = path.join(baseDownloadPath, relPath);
+                    if (isWithinDirectory(baseDownloadPath, fullFilePath)) {
+                        const fileExt = path.extname(fullFilePath).toLowerCase();
+                        const albumDir = path.dirname(fullFilePath);
+                        const artAdditions = await fetchArtworkTags(artworkUrl, albumDir, fileExt);
+                        if (Object.keys(artAdditions).length > 0) {
+                            await updateSongMetadata(id, {
+                                title: song.title,
+                                artist: song.artist,
+                                album: song.album,
+                                year: song.year != null ? String(song.year) : undefined,
+                                trackNumber: song.trackNumber != null ? String(song.trackNumber) : undefined,
+                                genre: song.genre || undefined,
+                                ...artAdditions,
+                            }).catch(e => warning(`On-demand artwork metadata repair failed: ${e.message}`));
+                            art = await getSongArt(id);
+                        }
+                    }
+                }
+            }
+        }
+
         if (art) {
             res.setHeader('Content-Type', art.mime);
             res.send(art.buffer);
@@ -633,7 +851,7 @@ app.get('/api/files/:id/art', async (req, res) => {
     }
 });
 
-app.put('/api/files/:id/metadata', async (req, res) => {
+app.put('/api/files/:id/metadata', requireCsrf, async (req, res) => {
     const { id } = req.params;
     const { title, artist, album, trackNumber, discNumber, year, releaseTime, artworkUrl, genre, comment, lyrics } = req.body;
     try {
@@ -652,25 +870,14 @@ app.put('/api/files/:id/metadata', async (req, res) => {
         if (lyrics !== undefined) tags.unsynchronisedLyrics = lyrics ? { language: 'eng', text: lyrics } : null;
 
         if (artworkUrl) {
-            try {
-                const imageResponse = await fetch(artworkUrl);
-                if (imageResponse.ok) {
-                    const imageBuffer = await imageResponse.arrayBuffer();
-                    const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
-                    tags.image = {
-                        mime: contentType,
-                        type: {
-                            id: 3,
-                            name: 'front cover'
-                        },
-                        description: 'Album Art',
-                        imageBuffer: Buffer.from(imageBuffer)
-                    };
-                } else {
-                    warning(`Failed to fetch artwork from URL: ${artworkUrl}`);
-                }
-            } catch (imgErr) {
-                warning(`Error fetching artwork: ${imgErr.message}`);
+            const baseDownloadPath = getBaseDownloadPath();
+            const relPath = Buffer.from(id, 'base64').toString('utf-8');
+            const fullFilePath = path.join(baseDownloadPath, relPath);
+            if (isWithinDirectory(baseDownloadPath, fullFilePath)) {
+                const fileExt = path.extname(fullFilePath).toLowerCase();
+                const albumDir = path.dirname(fullFilePath);
+                const artAdditions = await fetchArtworkTags(artworkUrl, albumDir, fileExt);
+                Object.assign(tags, artAdditions);
             }
         }
 
@@ -683,7 +890,7 @@ app.put('/api/files/:id/metadata', async (req, res) => {
     }
 });
 
-app.post('/api/files/:id/enrich', async (req, res) => {
+app.post('/api/files/:id/enrich', requireCsrf, async (req, res) => {
     const { id } = req.params;
     try {
         const library = await getLibrary();
@@ -750,7 +957,7 @@ app.post('/api/files/:id/enrich', async (req, res) => {
     }
 });
 
-app.post('/api/files/:id/toggle-favorite', async (req, res) => {
+app.post('/api/files/:id/toggle-favorite', requireCsrf, async (req, res) => {
     const { id } = req.params;
     try {
         const isLiked = await toggleFavorite(id);
@@ -761,7 +968,7 @@ app.post('/api/files/:id/toggle-favorite', async (req, res) => {
     }
 });
 
-app.post('/api/library/bulk/favorite', async (req, res) => {
+app.post('/api/library/bulk/favorite', requireCsrf, async (req, res) => {
     const { ids, shouldLike } = req.body;
     if (!ids || !Array.isArray(ids)) {
         return res.status(400).json({ error: 'ids array is required' });
@@ -776,7 +983,7 @@ app.post('/api/library/bulk/favorite', async (req, res) => {
     }
 });
 
-app.post('/api/library/bulk/delete', async (req, res) => {
+app.post('/api/library/bulk/delete', requireCsrf, async (req, res) => {
     const { ids } = req.body;
     if (!ids || !Array.isArray(ids)) {
         return res.status(400).json({ error: 'ids array is required' });
@@ -814,7 +1021,7 @@ app.get('/api/library/storage', async (req, res) => {
   }
 });
 
-app.delete('/api/files/:id', async (req, res) => {
+app.delete('/api/files/:id', requireCsrf, async (req, res) => {
   const { id } = req.params;
   try {
     info(`Deleting song with ID: ${id}`);
@@ -944,9 +1151,22 @@ const DEV_BG_JS = `
 </script>`;
 
 const clientDist = path.join(__dirname, '../client/dist');
+const clientSecurityHeaders = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'SAMEORIGIN',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://itunes.apple.com; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self';",
+};
+const applyClientSecurityHeaders = (res) => {
+  Object.entries(clientSecurityHeaders).forEach(([key, value]) => res.setHeader(key, value));
+};
 if (process.env.NODE_ENV !== 'development' && existsSync(clientDist)) {
-  app.use(express.static(clientDist));
-  app.get('/{*splat}', (req, res) => res.sendFile(path.join(clientDist, 'index.html')));
+  app.use(express.static(clientDist, { setHeaders: applyClientSecurityHeaders }));
+  app.get('/{*splat}', (req, res) => {
+    applyClientSecurityHeaders(res);
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
   info(`Serving client from ${clientDist}`);
 } else {
   app.get('/', (req, res) => {
@@ -1098,7 +1318,10 @@ if (process.env.NODE_ENV !== 'development' && existsSync(clientDist)) {
 
 app.use((req, res) => {
   if (req.accepts('html')) {
-    res.status(404).send(`<!DOCTYPE html>
+    const escapedMethod = htmlEscape(req.method);
+    const escapedPath = htmlEscape(req.path);
+    applyClientSecurityHeaders(res);
+    res.status(404).send(`<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -1206,7 +1429,7 @@ app.use((req, res) => {
   <div class="card">
     <div class="code">4<span class="accent">0</span>4</div>
     <h2>Route not found</h2>
-    <div class="path">${req.method} ${req.path}</div><br>
+    <div class="path">${escapedMethod} ${escapedPath}</div><br>
     <a class="pill" href="/">← Back to API status</a>
   </div>
   ${DEV_BG_JS}
