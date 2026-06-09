@@ -354,3 +354,293 @@
         font-size: 1.05rem;
     }
 }
+
+/* ===== Compact choice pills ===== */
+.compact-choice-group-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.compact-choice-group {
+    display: flex;
+    gap: 0.25rem;
+    background: var(--sd-glass-05);
+    border: 1px solid var(--sd-glass-border-soft);
+    border-radius: var(--sd-radius-md);
+    padding: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.setting-choice-pill {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: fit-content;
+    padding: 0.45rem 0.9rem;
+    border-radius: calc(var(--sd-radius-md) - 4px);
+    border: none !important;
+    background: transparent !important;
+    color: var(--sd-fg-3);
+    font-family: inherit;
+    font-size: 0.87rem;
+    font-weight: var(--sd-fw-medium);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all var(--sd-dur-fast) var(--sd-ease-glass);
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.setting-choice-pill:hover {
+    color: white;
+    background: var(--sd-glass-10) !important;
+}
+
+.setting-choice-pill.active {
+    background: var(--tf-accent-soft) !important;
+    color: white;
+    font-weight: var(--sd-fw-semibold);
+}
+
+.setting-choice-pill:focus-visible {
+    outline: 2px solid var(--tf-accent-bright);
+    outline-offset: 2px;
+    z-index: 1;
+}
+
+/* CSS-only tooltip via data-description */
+.setting-choice-pill::after {
+    content: attr(data-description);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10, 10, 18, 0.96);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--sd-glass-border-soft);
+    border-radius: 8px;
+    padding: 0.4rem 0.65rem;
+    font-size: 0.74rem;
+    font-weight: normal;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.4;
+    white-space: normal;
+    width: max-content;
+    max-width: 220px;
+    text-align: center;
+    pointer-events: none;
+    z-index: 200;
+    opacity: 0;
+    transition: opacity var(--sd-dur-fast) var(--sd-ease-glass);
+}
+
+.setting-choice-pill:hover::after,
+.setting-choice-pill:focus-visible::after {
+    opacity: 1;
+}
+
+/* Anchor edge pills to prevent viewport overflow */
+.setting-choice-pill:first-child::after {
+    left: 0;
+    transform: none;
+}
+
+.setting-choice-pill:last-child::after {
+    left: auto;
+    right: 0;
+    transform: none;
+}
+
+/* Helper line — always visible, updates on selection */
+.choice-helper-line {
+    font-size: 0.78rem;
+    color: var(--sd-fg-4);
+    line-height: 1.45;
+    margin: 0;
+}
+
+.choice-helper-line strong {
+    color: var(--sd-fg-3);
+    font-weight: var(--sd-fw-semibold);
+}
+
+/* 2x2 grid on narrow screens for 4-option groups */
+@media (max-width: 480px) {
+    .compact-choice-group.wrap-2x2 .setting-choice-pill {
+        flex: 1 1 calc(50% - 0.25rem);
+        min-width: calc(50% - 0.25rem);
+    }
+}
+
+
+/* ===== Settings section summaries ===== */
+.section-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.1rem;
+}
+
+.section-heading .section-title {
+    margin: 0;
+}
+
+.section-summary {
+    margin: 0;
+    color: var(--sd-fg-4);
+    font-size: 0.78rem;
+    line-height: 1.4;
+    text-align: right;
+    max-width: 52%;
+}
+
+.section-summary.warning {
+    color: #facc15;
+}
+
+/* Secret-safe input row */
+.secret-input-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.secret-input-row .settings-input {
+    flex: 1;
+}
+
+.secret-toggle,
+.btn-reset {
+    border: 1px solid var(--sd-glass-border-soft) !important;
+    background: var(--sd-glass-05) !important;
+    color: var(--sd-fg-3);
+    cursor: pointer;
+    transition: all var(--sd-dur-fast) var(--sd-ease-glass);
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.secret-toggle {
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.secret-toggle:hover:not(:disabled),
+.btn-reset:hover:not(:disabled) {
+    background: var(--sd-glass-15) !important;
+    color: white;
+}
+
+.secret-toggle:focus-visible,
+.btn-reset:focus-visible,
+.btn-save:focus-visible {
+    outline: 2px solid var(--tf-accent-bright);
+    outline-offset: 2px;
+}
+
+/* Explicit save/reset bar */
+.settings-save-bar {
+    position: static;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.85rem 1rem;
+    background: var(--sd-glass-05);
+    backdrop-filter: blur(var(--sd-blur-lg));
+    -webkit-backdrop-filter: blur(var(--sd-blur-lg));
+    border: 1px solid var(--sd-glass-border-soft);
+    border-radius: var(--sd-radius-lg);
+    box-shadow: var(--sd-shadow-md);
+}
+
+.settings-save-bar.dirty {
+    background: linear-gradient(135deg, var(--sd-glass-10), var(--tf-accent-tint));
+    border-color: var(--sd-glass-border-strong);
+}
+
+.save-status {
+    color: var(--sd-fg-4);
+    font-size: 0.85rem;
+}
+
+.settings-save-bar.dirty .save-status {
+    color: var(--sd-fg-3);
+}
+
+.save-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.btn-reset {
+    border-radius: var(--sd-radius-xl);
+    padding: 0.6rem 1rem;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: var(--sd-fw-medium);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.btn-reset:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+    .section-heading {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .section-summary {
+        max-width: none;
+        text-align: left;
+    }
+
+    .settings-save-bar {
+        position: static;
+        align-items: center;
+        flex-direction: row;
+        padding: 0.75rem;
+        border-radius: var(--sd-radius-lg);
+        background: var(--sd-glass-05);
+        box-shadow: var(--sd-shadow-md);
+    }
+
+    .save-actions {
+        flex: 0 0 auto;
+    }
+
+    .save-actions .btn-reset,
+    .save-actions .btn-save {
+        justify-content: center;
+        padding-inline: 0.85rem;
+    }
+
+    .save-status {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .secret-toggle,
+    .btn-reset,
+    .settings-save-bar {
+        transition: none;
+    }
+}
