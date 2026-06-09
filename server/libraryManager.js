@@ -2,17 +2,44 @@ import fs from 'fs/promises';
 import path from 'path';
 import { parseFile } from 'music-metadata';
 import { fileURLToPath } from 'url';
-import NodeID3 from 'node-id3';
+import { execFile as _execFile } from 'child_process';
+import { promisify } from 'util';
 import { info, error } from './logger.js';
+import { audioMetadataWriter } from './services/AudioMetadataWriter.js';
 import pLimit from 'p-limit';
+import { isWithinDirectory } from './utils/path-helper.js';
+
+const execFileAsync = promisify(_execFile);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const SUPPORTED_AUDIO_EXTENSIONS = new Set(['.mp3', '.m4a', '.opus', '.flac']);
 
 // Helper to get base download directory
 const getDownloadsDir = () => {
     return process.env.DOWNLOAD_PATH || path.join(__dirname, '..', 'downloads');
 };
+
+/**
+ * Returns audio duration in seconds via ffprobe. Falls back to 0 on any error.
+ * Used when music-metadata returns undefined/0 for a file.
+ */
+export async function probeDuration(filePath) {
+    try {
+        const { stdout } = await execFileAsync('ffprobe', [
+            '-v', 'quiet',
+            '-print_format', 'json',
+            '-show_format',
+            filePath,
+        ], { maxBuffer: 1024 * 1024 });
+        const probeInfo = JSON.parse(stdout);
+        const dur = parseFloat(probeInfo.format?.duration);
+        return Number.isFinite(dur) ? dur : 0;
+    } catch {
+        return 0;
+    }
+}
 
 const favoritesPath = path.join(__dirname, 'favorites.json');
 let favorites = new Set();
@@ -62,6 +89,40 @@ export async function bulkLike(ids, shouldLike) {
 let libraryCache = [];
 let isScanning = false;
 
+function firstTextValue(value) {
+    if (value == null) return null;
+    if (typeof value === 'string') return value || null;
+    if (typeof value === 'object' && typeof value.text === 'string') return value.text || null;
+    return null;
+}
+
+export function getNativeTagValue(metadata, tagNames) {
+    const wanted = new Set(tagNames.map(name => name.toUpperCase()));
+    for (const tags of Object.values(metadata.native || {})) {
+        if (!Array.isArray(tags)) continue;
+        for (const tag of tags) {
+            if (wanted.has(String(tag.id || '').toUpperCase())) {
+                return firstTextValue(tag.value);
+            }
+        }
+    }
+    return null;
+}
+
+export function extractComment(metadata) {
+    const commonComment = metadata.common?.comment?.[0];
+    return firstTextValue(commonComment)
+        || getNativeTagValue(metadata, ['DESCRIPTION', 'COMMENT'])
+        || null;
+}
+
+export function extractLyrics(metadata) {
+    const commonLyrics = metadata.common?.lyrics?.[0];
+    return firstTextValue(commonLyrics)
+        || getNativeTagValue(metadata, ['LYRICS', 'UNSYNCEDLYRICS'])
+        || null;
+}
+
 /**
  * Recursively scans a directory for files.
  * @param {string} dir 
@@ -75,7 +136,7 @@ async function getFilesRecursively(dir) {
             const fullPath = path.join(dir, entry.name);
             if (entry.isDirectory()) {
                 results = results.concat(await getFilesRecursively(fullPath));
-            } else if (entry.isFile() && entry.name.endsWith('.mp3')) {
+            } else if (entry.isFile() && SUPPORTED_AUDIO_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
                 results.push(fullPath);
             }
         }
@@ -98,7 +159,7 @@ export async function refreshLibrary() {
     try {
         const downloadsDir = getDownloadsDir();
         const files = await getFilesRecursively(downloadsDir);
-        info(`Found ${files.length} MP3 files. Starting parallel metadata parsing (concurrency: 10)...`);
+        info(`Found ${files.length} audio files. Starting parallel metadata parsing (concurrency: 10)...`);
         
         // Use p-limit to control concurrency (e.g., 10 concurrent parsers)
         const limit = pLimit(10);
@@ -120,22 +181,36 @@ export async function refreshLibrary() {
                     info(`Progress: ${processedCount}/${files.length} files parsed...`);
                 }
 
+                // music-metadata can return undefined duration for some Opus/container
+                // variants; ffprobe is more reliable for structural duration data.
+                const rawDuration = metadata.format.duration;
+                const duration = rawDuration > 0
+                    ? rawDuration
+                    : await probeDuration(filePath);
+
+                // Artwork URL stored as a Vorbis comment for formats that can't
+                // embed artwork (e.g. Opus). Used by the frontend as a fallback
+                // before hitting /api/files/:id/art.
+                const artworkUrl = getNativeTagValue(metadata, ['ARTWORK_URL']) || null;
+
                 return {
                     id: id,
                     path: relPath,
-                    title: metadata.common.title || path.basename(filePath, '.mp3'),
+                    title: metadata.common.title || path.basename(filePath, path.extname(filePath)),
                     artist: metadata.common.artists?.join('/') || metadata.common.artist || 'Unknown Artist',
                     album: metadata.common.album || 'Unknown Album',
-                    duration: metadata.format.duration || 0,
+                    duration,
+                    artworkUrl,
                     year: metadata.common.year || null,
                     releaseTime: metadata.common.releasedate || metadata.common.date || null,
                     trackNumber: metadata.common.track?.no != null ? String(metadata.common.track.no) : null,
                     discNumber: metadata.common.disk?.no || null,
                     genre: metadata.common.genre?.[0] || null,
-                    comment: metadata.common.comment?.[0]?.text || null,
-                    lyrics: metadata.common.lyrics?.[0]?.text || null,
+                    comment: extractComment(metadata),
+                    lyrics: extractLyrics(metadata),
                     addedAt: stat.mtime.getTime(),
                     size: stat.size,
+                    fileFormat: path.extname(filePath).slice(1).toLowerCase(),
                 };
             } catch (err) {
                 error(`Failed to parse metadata for ${filePath}: ${err.message}`);
@@ -180,7 +255,7 @@ export async function deleteSong(id) {
         const fullPath = path.join(downloadsDir, relPath);
 
         // Security check: ensure the resolved path is still inside downloads dir
-        if (!fullPath.startsWith(downloadsDir)) {
+        if (!isWithinDirectory(downloadsDir, fullPath)) {
             throw new Error('Invalid path');
         }
 
@@ -193,15 +268,21 @@ export async function deleteSong(id) {
         const albumDir = path.dirname(fullPath);
         try {
             const albumFiles = await fs.readdir(albumDir);
-            if (albumFiles.length === 0) {
-                await fs.rmdir(albumDir); // remove album folder if empty
-                
+            // Check if any audio files remain in the album directory
+            const remainingAudio = albumFiles.filter(
+                f => SUPPORTED_AUDIO_EXTENSIONS.has(path.extname(f).toLowerCase())
+            );
+            if (remainingAudio.length === 0) {
+                // Clean up cover.jpg saved during download before removing the directory
+                await fs.unlink(path.join(albumDir, 'cover.jpg')).catch(() => {});
+                await fs.rmdir(albumDir).catch(() => {}); // succeeds when dir is now empty
+
                 // Check if artist folder is empty and remove it if so
                 const artistDir = path.dirname(albumDir);
-                
+
                 // Safety check: Ensure we are not deleting the root downloads directory
                 // and that the artist directory is actually a subdirectory of downloadsDir
-                if (artistDir !== downloadsDir && artistDir.startsWith(downloadsDir)) {
+                if (artistDir !== downloadsDir && isWithinDirectory(downloadsDir, artistDir)) {
                     const artistFiles = await fs.readdir(artistDir);
                     if (artistFiles.length === 0) {
                         await fs.rmdir(artistDir);
@@ -246,17 +327,33 @@ export async function getSongArt(id) {
         const fullPath = path.join(downloadsDir, relPath);
 
         // Security check
-        if (!fullPath.startsWith(downloadsDir)) return null;
+        if (!isWithinDirectory(downloadsDir, fullPath)) return null;
 
-        const metadata = await parseFile(fullPath);
-        const picture = metadata.common.picture && metadata.common.picture[0];
+        // Try embedded artwork first (MP3/M4A/FLAC have it; Opus does not).
+        let picture = null;
+        try {
+            const metadata = await parseFile(fullPath);
+            picture = metadata.common.picture?.[0] ?? null;
+        } catch {
+            // parseFile failed (corrupt/unsupported file); fall through to cover.jpg
+        }
 
         if (picture) {
-            return {
-                buffer: picture.data,
-                mime: picture.format
-            };
+            return { buffer: picture.data, mime: picture.format };
         }
+
+        // Fallback: cover.jpg saved in the album directory during download.
+        const albumDir = path.dirname(fullPath);
+        if (isWithinDirectory(downloadsDir, albumDir)) {
+            const coverPath = path.join(albumDir, 'cover.jpg');
+            try {
+                const coverBuf = await fs.readFile(coverPath);
+                return { buffer: coverBuf, mime: 'image/jpeg' };
+            } catch {
+                // no cover.jpg
+            }
+        }
+
         return null;
     } catch (err) {
         error(`Error extracting art: ${err.message}`);
@@ -276,11 +373,10 @@ export async function updateSongMetadata(id, tags) {
         const fullPath = path.join(downloadsDir, relPath);
 
         // Security check
-        if (!fullPath.startsWith(downloadsDir)) throw new Error('Invalid path');
+        if (!isWithinDirectory(downloadsDir, fullPath)) throw new Error('Invalid path');
 
-        // Write tags
-        await NodeID3.Promise.update(tags, fullPath);
-        
+        await audioMetadataWriter.updateAudioMetadata(fullPath, tags);
+
         // Clear cache so it rescans on next get
         libraryCache = [];
         return true;
