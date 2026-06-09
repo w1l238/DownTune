@@ -1,2 +1,11 @@
 node_modules
 npm-debug.log
+.env
+*.log
+logs/
+metadata_cache.json
+favorites.json
+downloads/
+tmp/
+.nyc_output/
+coverage/
