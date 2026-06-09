@@ -46,16 +46,29 @@ export class MetadataService {
   async enrich(artist, title, albumHint = '') {
     if (!artist || !title) return { album: 'YouTube Music' };
 
+    const nArtist = artist.toLowerCase();
+    const nTitle = title.toLowerCase();
+    const nAlbumHint = albumHint.toLowerCase();
+
     // Include albumHint in cache key so different album contexts get independent results
-    const cacheKey = `${artist.toLowerCase()}|${title.toLowerCase()}|${albumHint.toLowerCase()}`;
-    if (this.cache.has(cacheKey)) {
-      const cached = this.cache.get(cacheKey);
-      // Only return if it has enriched data and the track number (if present) is a plain integer
+    const cacheKey = `${nArtist}|${nTitle}|${nAlbumHint}`;
+    const legacyCacheKey = `${nArtist}|${nTitle}`;
+
+    const getValidCached = (key) => {
+      if (!this.cache.has(key)) return null;
+      const cached = this.cache.get(key);
       const trackNumOk = !cached.trackNumber || /^\d+$/.test(cached.trackNumber);
-      if ((cached.trackNumber || cached.year) && trackNumOk) {
-          // info(`Cache hit for metadata: ${artist} - ${title}`);
-          return cached;
-      }
+      return (cached.trackNumber || cached.year) && trackNumOk ? cached : null;
+    };
+
+    const primary = getValidCached(cacheKey);
+    if (primary) return primary;
+
+    // Fall back to legacy two-part key only when no albumHint is provided,
+    // to preserve compatibility with existing metadata_cache.json entries.
+    if (!nAlbumHint) {
+      const legacy = getValidCached(legacyCacheKey);
+      if (legacy) return legacy;
     }
 
     try {
