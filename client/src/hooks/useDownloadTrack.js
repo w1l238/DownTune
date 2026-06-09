@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useDownloads } from '../contexts/DownloadContext';
-import { API_BASE_URL } from '../config';
+import { apiFetch } from '../utils/apiClient';
 
 /**
  * Reusable hook for downloading a single track.
@@ -35,36 +35,24 @@ export function useDownloadTrack(onSuccess) {
         });
         updateDownload(id, { status: 'downloading', progress: 5 });
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000);
-
         try {
-            const res = await fetch(`${API_BASE_URL}/download-song`, {
+            const data = await apiFetch('/download-song', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(trackDetails),
-                signal: controller.signal,
-            });
-            const data = await res.json();
-            if (res.ok) {
-                updateDownload(id, { status: 'done', progress: 100 });
-                showNotification(
-                    data.status === 'exists' ? 'Song already downloaded' : 'Download successful!',
-                    data.status === 'exists' ? 'info' : 'success',
-                );
-                onSuccess?.();
-            } else {
-                updateDownload(id, { status: 'error', progress: 0 });
-                showNotification(data.error || 'Download failed.', 'error');
-            }
+                body: trackDetails,
+            }, 10 * 60 * 1000);
+            updateDownload(id, { status: 'done', progress: 100 });
+            showNotification(
+                data.status === 'exists' ? 'Song already downloaded' : 'Download successful!',
+                data.status === 'exists' ? 'info' : 'success',
+            );
+            onSuccess?.();
         } catch (err) {
             updateDownload(id, { status: 'error', progress: 0 });
             showNotification(
-                err?.name === 'AbortError' ? 'Download timed out after 10 minutes.' : 'Download failed.',
+                err?.name === 'AbortError' ? 'Download timed out after 10 minutes.' : (err.message || 'Download failed.'),
                 'error',
             );
         } finally {
-            clearTimeout(timeoutId);
             setDownloading(prev => ({ ...prev, [id]: false }));
         }
     };
