@@ -1,6 +1,9 @@
 .PHONY: dev run setup lint lint-fix build clean help
 
 CLIENT_BIN := client/node_modules/.bin
+VENV_BIN   := $(HOME)/.local/share/downtune-venv/bin
+# Prepend venv/bin to PATH when the setup-script venv is present; no-op otherwise.
+VENV_PATH  := $(if $(wildcard $(VENV_BIN)/python3),$(VENV_BIN):$(PATH),$(PATH))
 
 help:
 	@echo "DownTune — available targets:"
@@ -22,7 +25,7 @@ setup:
 dev:
 	@echo "Starting DownTune (development)..."
 	@echo "Frontend → http://localhost:5173"
-	@npx concurrently \
+	@PATH="$(VENV_PATH)" npx concurrently \
 		--names "client,server" \
 		--prefix-colors "cyan,green" \
 		"npm run dev --prefix client" \
@@ -31,7 +34,7 @@ dev:
 run: build
 	@echo "Starting DownTune (production)..."
 	@echo "Open → http://localhost:3000"
-	@PORT=3000 node server/index.js
+	@PATH="$(VENV_PATH)" PORT=3000 node server/index.js
 
 lint:
 	$(CLIENT_BIN)/eslint client/src
