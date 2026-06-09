@@ -133,12 +133,33 @@ describe('MetadataService.enrich', () => {
     assert.deepEqual(result, { album: 'YouTube Music' });
   });
 
-  test('returns cached value on second call', async () => {
+  test('returns cached value on second call (legacy key, no albumHint)', async () => {
     const key = 'cache test artist';
     const val = { album: 'Cached Album', year: '2021' };
     svc.cache.set(`${key}|cached song`, val);
     const result = await svc.enrich(key, 'Cached Song');
     assert.deepEqual(result, val);
+  });
+
+  test('returns cached value when album-aware primary key matches', async () => {
+    const freshSvc = new MetadataService();
+    const val = { album: 'Specific Album', year: '2022' };
+    freshSvc.cache.set('primary artist|primary song|primary album', val);
+    const result = await freshSvc.enrich('Primary Artist', 'Primary Song', 'Primary Album');
+    assert.deepEqual(result, val);
+  });
+
+  test('ignores legacy key when explicit albumHint is provided', async () => {
+    const freshSvc = new MetadataService();
+    const legacyVal = { album: 'Legacy Album', year: '2019' };
+    freshSvc.cache.set('explicit artist|explicit song', legacyVal);
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => makeData([makeRelease({ title: 'Fresh Album', date: '2024-01-01' })]),
+    });
+    const result = await freshSvc.enrich('Explicit Artist', 'Explicit Song', 'Some Hint');
+    assert.equal(result.album, 'Fresh Album');
   });
 
   test('returns enriched data from MusicBrainz on successful fetch', async () => {
