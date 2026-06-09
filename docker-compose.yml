@@ -6,7 +6,7 @@ services:
     env_file:
       - ./server/.env
     volumes:
-      - /home/hermes/dev/DownTune/downloads:/usr/src/downloads
+      - /your/path/here:/usr/src/downloads # Put your path of your songs before the ':'
     dns:
       - 8.8.8.8
       - 8.8.4.4
