@@ -1,19 +1,33 @@
 import { spawn } from 'child_process';
+import { existsSync } from 'fs';
 import { info } from '../logger.js';
 
-/**
- * Helper to run yt-dlp directly
- * @param {string[]} args 
- * @returns {Promise<string>}
- */
+// Resolution order: YT_DLP_PYTHON env override → setup-script venv → system python3
+export function resolveYtDlpPython(env = process.env) {
+  if (env.YT_DLP_PYTHON) return env.YT_DLP_PYTHON;
+  const candidate = `${env.HOME ?? '/root'}/.local/share/downtune-venv/bin/python3`;
+  if (existsSync(candidate)) return candidate;
+  return 'python3';
+}
+
+const PYTHON_BIN = resolveYtDlpPython();
+
 export const runYtDlp = (args) => {
   return new Promise((resolve, reject) => {
     const fullArgs = ['-m', 'yt_dlp', ...args];
-    info(`[DEBUG] Executing: python3 ${fullArgs.join(' ')}`);
+    info(`[DEBUG] Executing: ${PYTHON_BIN} ${fullArgs.join(' ')}`);
 
-    const childProcess = spawn('python3', fullArgs, {
-      env: { ...process.env, HOME: '/tmp' }
-    });
+    const homeDir = process.env.HOME ?? '/root';
+    const venvBin = `${homeDir}/.local/share/downtune-venv/bin`;
+    const basePath = process.env.PATH || '/usr/bin:/usr/local/bin:/bin';
+    const childEnv = {
+      PATH: existsSync(venvBin) ? `${venvBin}:${basePath}` : basePath,
+      HOME: '/tmp',
+    };
+    if (process.env.LANG) childEnv.LANG = process.env.LANG;
+    if (process.env.LC_ALL) childEnv.LC_ALL = process.env.LC_ALL;
+
+    const childProcess = spawn(PYTHON_BIN, fullArgs, { env: childEnv });
     let stdout = '';
     let stderr = '';
 
