@@ -6,6 +6,7 @@ import { LuHeartOff } from 'react-icons/lu';
 import toast, { Toaster } from 'react-hot-toast';
 import { useInView } from 'react-intersection-observer';
 import { API_BASE_URL } from '../config';
+import { apiFetch } from '../utils/apiClient';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import { getSpeedOption, applySongLayout } from '../utils/appearance';
 import MobileSearchBar from '../components/MobileSearchBar';
@@ -20,24 +21,24 @@ const LazyAlbumCard = ({ album, index, animationsDone, staggerDelay, handleAlbum
     });
 
     return (
-        <div 
+        <div
             ref={ref}
             className={`album-card-wrapper ${!animationsDone ? 'fade-in' : ''}`}
             style={{ animationDelay: !animationsDone ? `${Math.min(index * staggerDelay, 0.6)}s` : '0s', minHeight: '250px' }}
         >
             {inView ? (
-                <div 
-                    className="album-card" 
+                <div
+                    className="album-card"
                     onClick={() => handleAlbumClick(album)}
                 >
                     <div className="album-art">
-                        <img 
-                            src={`${API_BASE_URL}/api/files/${encodeURIComponent(album.artId)}/art?t=${lastUpdate}`} 
+                        <img
+                            src={album.artworkUrl || `${API_BASE_URL}/api/files/${encodeURIComponent(album.artId)}/art?t=${lastUpdate}`}
                             alt={album.name}
                             onError={(e) => { e.target.onerror = null; e.target.src = 'data:image/svg+xml;base64,...'; e.target.style.display = 'none'; }}
                             onLoad={(e) => e.target.style.display = 'block'}
                         />
-                        <FiDisc style={{ display: 'none', fontSize: '3rem', opacity: 0.5 }} /> 
+                        <FiDisc style={{ display: 'none', fontSize: '3rem', opacity: 0.5 }} />
                     </div>
                     <div className="album-info">
                         <h3 title={album.name}>{album.name}</h3>
@@ -169,7 +170,7 @@ const Library = () => {
             const response = await fetch(`${API_BASE_URL}/api/library/scan`);
             // Add 1 second artificial delay for better UX
             await new Promise(resolve => setTimeout(resolve, 1000));
-            
+
             if (response.ok) {
                 const data = await response.json();
                 setSongs(data);
@@ -178,8 +179,8 @@ const Library = () => {
             } else {
                 const data = await response.json();
                 const rawError = data.error || 'Failed to scan library';
-                setErrorModal({ 
-                    show: true, 
+                setErrorModal({
+                    show: true,
                     message: (
                         <>
                             {rawError}
@@ -192,8 +193,8 @@ const Library = () => {
             }
         } catch (error) {
             console.error('Error scanning library:', error);
-            setErrorModal({ 
-                show: true, 
+            setErrorModal({
+                show: true,
                 message: (
                     <>
                         Network error scanning library: {error.message}
@@ -214,15 +215,10 @@ const Library = () => {
             const newIsLiked = !song.isLiked;
             setSongs(songs.map(s => s.id === song.id ? { ...s, isLiked: newIsLiked } : s));
 
-            const response = await fetch(`${API_BASE_URL}/api/files/${encodeURIComponent(song.id)}/toggle-favorite`, {
+            await apiFetch(`/api/files/${encodeURIComponent(song.id)}/toggle-favorite`, {
                 method: 'POST'
             });
-            
-            if (!response.ok) {
-                // Revert if failed
-                setSongs(songs.map(s => s.id === song.id ? { ...s, isLiked: !newIsLiked } : s));
-                toast.error('Failed to update favorite');
-            }
+
         } catch (error) {
              setSongs(songs.map(s => s.id === song.id ? { ...s, isLiked: !song.isLiked } : s));
              console.error('Error toggling favorite:', error);
@@ -247,24 +243,12 @@ const Library = () => {
                 return s;
             }));
 
-            const response = await fetch(`${API_BASE_URL}/api/library/bulk/favorite`, {
+            await apiFetch('/api/library/bulk/favorite', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids, shouldLike })
+                body: { ids, shouldLike }
             });
 
-            if (!response.ok) {
-                // Revert
-                setSongs(songs.map(s => {
-                    if (s.album === albumName) {
-                        return { ...s, isLiked: !shouldLike }; // simple revert logic might need refinement if mixed state but good enough
-                    }
-                    return s;
-                }));
-                toast.error('Failed to update album favorites');
-            } else {
-                 toast.success(shouldLike ? `Liked all songs in "${albumName}"` : `Unliked all songs in "${albumName}"`);
-            }
+            toast.success(shouldLike ? `Liked all songs in "${albumName}"` : `Unliked all songs in "${albumName}"`);
         } catch (error) {
             console.error('Error liking album:', error);
             // Revert
@@ -288,9 +272,7 @@ const Library = () => {
         if (!editModal.song) return;
         setIsEnriching(true);
         try {
-            const res = await fetch(`${API_BASE_URL}/api/files/${encodeURIComponent(editModal.song.id)}/enrich`, { method: 'POST' });
-            const data = await res.json();
-            if (!res.ok) { setErrorModal({ show: true, message: data.error || 'Failed to fetch metadata' }); return; }
+            const data = await apiFetch(`/api/files/${encodeURIComponent(editModal.song.id)}/enrich`, { method: 'POST' });
             if (data.found.length === 0) {
                 toast('Nothing new found', { icon: 'ℹ️' });
             } else {
@@ -330,10 +312,9 @@ const Library = () => {
         if (!song) return;
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/files/${encodeURIComponent(song.id)}/metadata`, {
+            await apiFetch(`/api/files/${encodeURIComponent(song.id)}/metadata`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+                body: {
                     title: song.title,
                     artist: song.artist,
                     album: song.album,
@@ -345,17 +326,11 @@ const Library = () => {
                     comment: song.comment,
                     lyrics: song.lyrics,
                     artworkUrl: song.artworkUrl,
-                })
+                }
             });
-
-            if (response.ok) {
-                toast.success('Metadata updated');
-                fetchLibrary(); // Full refresh to sync everything
-                setEditModal({ show: false, song: null });
-            } else {
-                const data = await response.json();
-                setErrorModal({ show: true, message: data.error || 'Failed to update metadata' });
-            }
+            toast.success('Metadata updated');
+            fetchLibrary(); // Full refresh to sync everything
+            setEditModal({ show: false, song: null });
         } catch (error) {
             console.error('Error saving metadata:', error);
             setErrorModal({ show: true, message: 'Network error saving metadata' });
@@ -366,12 +341,10 @@ const Library = () => {
         if (!deleteModal.songId) return;
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/files/${encodeURIComponent(deleteModal.songId)}`, {
+            await apiFetch(`/api/files/${encodeURIComponent(deleteModal.songId)}`, {
                 method: 'DELETE',
             });
-
-            if (response.ok) {
-                setSongs(songs.filter(s => s.id !== deleteModal.songId));
+            setSongs(songs.filter(s => s.id !== deleteModal.songId));
                 toast.success(`Deleted "${deleteModal.songTitle}"`, {
                     style: {
                         background: 'rgba(29, 185, 84, 0.7)',
@@ -381,7 +354,7 @@ const Library = () => {
                         borderRadius: '1rem',
                     }
                 });
-                
+
                 // If we deleted the last song in the current album, go back
                 if (selectedAlbum) {
                     const remaining = songs.filter(s => s.id !== deleteModal.songId && s.album === selectedAlbum.name);
@@ -391,23 +364,6 @@ const Library = () => {
                     }
                 }
 
-            } else {
-                const data = await response.json();
-                const rawError = data.error || 'Failed to delete song';
-                
-                let message = rawError;
-                if (rawError.includes('EACCES')) {
-                    message = (
-                        <>
-                            {rawError}
-                            <br /><br />
-                            <b>Fix: Check user permissions on the folder or file of the song being deleted.</b>
-                        </>
-                    );
-                }
-                
-                setErrorModal({ show: true, message });
-            }
         } catch (error) {
             console.error('Error deleting song:', error);
             setErrorModal({ show: true, message: 'Network error deleting song' });
@@ -429,6 +385,15 @@ const Library = () => {
         return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     };
 
+    const getFileFormatLabel = (song) => {
+        if (song.fileFormat) return song.fileFormat.toUpperCase();
+        if (song.path) {
+            const ext = song.path.split('.').pop();
+            if (ext && ext.length <= 4) return ext.toUpperCase();
+        }
+        return null;
+    };
+
     // Group songs by Album
     const albums = useMemo(() => {
         const groups = {};
@@ -439,7 +404,8 @@ const Library = () => {
                     name: albumName,
                     artist: song.artist,
                     songs: [],
-                    artId: song.id // Use first song ID to fetch art
+                    artId: song.id, // Use first song ID to fetch art via /api/files/:id/art
+                    artworkUrl: song.artworkUrl || null, // CDN URL stored for formats without embedded art
                 };
             }
             groups[albumName].songs.push(song);
@@ -450,14 +416,14 @@ const Library = () => {
     // Filter Logic
     const filteredContent = useMemo(() => {
         const query = searchQuery.toLowerCase();
-        
+
         if (view === 'albums') {
             let filteredAlbums = albums;
             if (showFavoritesOnly) {
                 filteredAlbums = filteredAlbums.filter(album => album.songs.some(s => s.isLiked));
             }
-            return filteredAlbums.filter(album => 
-                album.name.toLowerCase().includes(query) || 
+            return filteredAlbums.filter(album =>
+                album.name.toLowerCase().includes(query) ||
                 album.artist.toLowerCase().includes(query)
             );
         } else if (view === 'songs' && selectedAlbum) {
@@ -491,7 +457,7 @@ const handleBack = () => {
     };
 
     const toggleSelect = (id) => {
-        setSelectedIds(prev => 
+        setSelectedIds(prev =>
             prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
         );
     };
@@ -499,7 +465,7 @@ const handleBack = () => {
     const toggleSelectAll = () => {
         const currentIds = filteredContent.map(s => s.id);
         const allSelected = currentIds.every(id => selectedIds.includes(id));
-        
+
         if (allSelected) {
             setSelectedIds(selectedIds.filter(id => !currentIds.includes(id)));
         } else {
@@ -509,23 +475,16 @@ const handleBack = () => {
 
     const handleBulkLike = async (shouldLike) => {
         if (selectedIds.length === 0) return;
-        
+
         try {
             // Optimistic update
             setSongs(songs.map(s => selectedIds.includes(s.id) ? { ...s, isLiked: shouldLike } : s));
 
-            const response = await fetch(`${API_BASE_URL}/api/library/bulk/favorite`, {
+            await apiFetch('/api/library/bulk/favorite', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: selectedIds, shouldLike })
+                body: { ids: selectedIds, shouldLike }
             });
-
-            if (!response.ok) {
-                fetchLibrary(); // Revert via refresh
-                toast.error('Failed to update favorites');
-            } else {
-                toast.success(`${shouldLike ? 'Liked' : 'Unliked'} ${selectedIds.length} songs`);
-            }
+            toast.success(`${shouldLike ? 'Liked' : 'Unliked'} ${selectedIds.length} songs`);
         } catch (error) {
             fetchLibrary();
             console.error('Error in bulk like:', error);
@@ -536,33 +495,26 @@ const handleBack = () => {
         if (selectedIds.length === 0) return;
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/library/bulk/delete`, {
+            const results = await apiFetch('/api/library/bulk/delete', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: selectedIds })
+                body: { ids: selectedIds }
             });
+            const successIds = results.success;
+            setSongs(songs.filter(s => !successIds.includes(s.id)));
+            setSelectedIds([]);
+            setBulkDeleteModal({ show: false, count: 0 });
+            toast.success(`Deleted ${successIds.length} songs`);
 
-            if (response.ok) {
-                const results = await response.json();
-                const successIds = results.success;
-                setSongs(songs.filter(s => !successIds.includes(s.id)));
-                setSelectedIds([]);
-                setBulkDeleteModal({ show: false, count: 0 });
-                toast.success(`Deleted ${successIds.length} songs`);
-                
-                if (results.failed.length > 0) {
-                    toast.error(`Failed to delete ${results.failed.length} songs`);
-                }
+            if (results.failed.length > 0) {
+                toast.error(`Failed to delete ${results.failed.length} songs`);
+            }
 
-                // If in album view and album is now empty, go back
-                if (activeAlbum) {
-                    const remainingInAlbum = songs.filter(s => !successIds.includes(s.id) && s.album === activeAlbum.name);
-                    if (remainingInAlbum.length === 0) {
-                        handleBack();
-                    }
+            // If in album view and album is now empty, go back
+            if (activeAlbum) {
+                const remainingInAlbum = songs.filter(s => !successIds.includes(s.id) && s.album === activeAlbum.name);
+                if (remainingInAlbum.length === 0) {
+                    handleBack();
                 }
-            } else {
-                toast.error('Failed to delete songs');
             }
         } catch (error) {
             console.error('Error in bulk delete:', error);
@@ -598,9 +550,9 @@ const handleBack = () => {
     };
 
     return (
-        <div 
+        <div
             ref={containerRef}
-            className={`library-container ${openMenuId ? 'has-active-menu' : ''} ${isSelectionMode ? 'selection-mode' : ''}`} 
+            className={`library-container ${openMenuId ? 'has-active-menu' : ''} ${isSelectionMode ? 'selection-mode' : ''}`}
             onClick={handleContainerClick}
         >
             {createPortal(
@@ -618,7 +570,7 @@ const handleBack = () => {
                 }} />,
                 document.body
             )}
-            
+
             {view === 'albums' && (
                 <div className="page-header" ref={headerRef}>
                     <h2>My Library</h2>
@@ -717,13 +669,13 @@ const handleBack = () => {
                             </button>
                              <div
                                 className={`album-view-header ${!animationsDone ? 'fade-in' : ''}`}
-                                style={{ 
-                                    '--album-art-url': `url(${API_BASE_URL}/api/files/${encodeURIComponent(activeAlbum.artId)}/art?t=${lastUpdate})` 
+                                style={{
+                                    '--album-art-url': `url(${activeAlbum.artworkUrl || `${API_BASE_URL}/api/files/${encodeURIComponent(activeAlbum.artId)}/art?t=${lastUpdate}`})`
                                 }}
                              >
                                 <div className="album-view-art">
-                                    <img 
-                                        src={`${API_BASE_URL}/api/files/${encodeURIComponent(activeAlbum.artId)}/art?t=${lastUpdate}`} 
+                                    <img
+                                        src={activeAlbum.artworkUrl || `${API_BASE_URL}/api/files/${encodeURIComponent(activeAlbum.artId)}/art?t=${lastUpdate}`}
                                         alt={activeAlbum.name}
                                         onError={(e) => { e.target.style.display = 'none'; }}
                                     />
@@ -733,22 +685,22 @@ const handleBack = () => {
                                     <h2>{activeAlbum.artist}</h2>
                                     <div className="album-actions">
                                         <p>{activeAlbum.songs.length} songs</p>
-                                        <button 
-                                            className={`icon-btn favorite-btn ${activeAlbum.songs.every(s => s.isLiked) ? 'active' : ''}`} 
-                                            style={{ 
+                                        <button
+                                            className={`icon-btn favorite-btn ${activeAlbum.songs.every(s => s.isLiked) ? 'active' : ''}`}
+                                            style={{
                                                 borderRadius: '50%'
                                             }}
                                             onClick={() => handleLikeAlbum(activeAlbum.name)}
                                             title="Like/Unlike Album"
                                         >
-                                            <FiHeart 
-                                                fill={activeAlbum.songs.every(s => s.isLiked) ? 'white' : 'none'} 
+                                            <FiHeart
+                                                fill={activeAlbum.songs.every(s => s.isLiked) ? 'white' : 'none'}
                                                 style={{ display: 'block' }}
                                             />
                                         </button>
-                                        <button 
-                                            className={`icon-btn edit-mode-btn ${isSelectionMode ? 'active' : ''}`} 
-                                            style={{ 
+                                        <button
+                                            className={`icon-btn edit-mode-btn ${isSelectionMode ? 'active' : ''}`}
+                                            style={{
                                                 borderRadius: '50%'
                                             }}
                                             onClick={() => {
@@ -771,8 +723,8 @@ const handleBack = () => {
                                 <div className={`song-list-header ${!animationsDone ? 'fade-in' : ''}`} style={{ animationDelay: !animationsDone ? `${speedOpt.staggerDelay}s` : '0s' }}>
                                     <div>
                                         {isSelectionMode ? (
-                                            <input 
-                                                type="checkbox" 
+                                            <input
+                                                type="checkbox"
                                                 className="library-checkbox"
                                                 checked={filteredContent.length > 0 && filteredContent.every(s => selectedIds.includes(s.id))}
                                                 onChange={toggleSelectAll}
@@ -781,12 +733,13 @@ const handleBack = () => {
                                     </div>
                                     <div>Title</div>
                                     <div>Duration</div>
+                                    <div className="hide-mobile">Format</div>
                                     <div className="hide-mobile">Size</div>
                                     <div></div>
                                 </div>
                                 {filteredContent.map((song, index) => (
-                                    <div 
-                                        key={song.id} 
+                                    <div
+                                        key={song.id}
                                         className={`song-row ${!animationsDone ? 'fade-in' : ''} ${openMenuId === song.id ? 'is-active-row' : ''} ${selectedIds.includes(song.id) ? 'selected' : ''}`}
                                         style={{
                                             animationDelay: !animationsDone ? `${Math.min((index + 2) * speedOpt.staggerDelay, 0.6)}s` : '0s'
@@ -796,8 +749,8 @@ const handleBack = () => {
                                         <div>
                                             <span style={{ opacity: 0.5 }}>{index + 1}</span>
                                             {isSelectionMode && (
-                                                <input 
-                                                    type="checkbox" 
+                                                <input
+                                                    type="checkbox"
                                                     className="library-checkbox"
                                                     checked={selectedIds.includes(song.id)}
                                                     onChange={() => toggleSelect(song.id)}
@@ -807,6 +760,16 @@ const handleBack = () => {
                                         </div>
                                         <div style={{ fontWeight: 'bold' }}>{song.title}</div>
                                         <div className="song-row-duration">{formatDuration(song.duration)}</div>
+                                        <div className="song-row-format hide-mobile">
+                                            {getFileFormatLabel(song) && (
+                                                <span
+                                                    className={`song-format-badge fmt-${getFileFormatLabel(song).toLowerCase()}`}
+                                                    aria-label={`Audio format ${getFileFormatLabel(song)}`}
+                                                >
+                                                    {getFileFormatLabel(song)}
+                                                </span>
+                                            )}
+                                        </div>
                                         <div className="song-row-size hide-mobile">{formatSize(song.size)}</div>
                                         {/* Mobile: three-dot menu */}
                                         <div className="action-container" style={{ position: 'relative', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
@@ -878,7 +841,17 @@ const handleBack = () => {
                 <div className="modal-overlay" onClick={() => setEditModal({ show: false, song: null })}>
                     <div className="modal-content edit-modal" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <span className="modal-title"><FiEdit size={13} /> Edit Metadata</span>
+                            <span className="modal-title">
+                                <FiEdit size={13} /> Edit Metadata
+                                {editModal.song && getFileFormatLabel(editModal.song) && (
+                                    <span
+                                        className={`song-format-badge fmt-${getFileFormatLabel(editModal.song).toLowerCase()}`}
+                                        aria-label={`Audio format ${getFileFormatLabel(editModal.song)}`}
+                                    >
+                                        {getFileFormatLabel(editModal.song)}
+                                    </span>
+                                )}
+                            </span>
                             <button className="modal-close-btn" onClick={() => setEditModal({ show: false, song: null })}><FiX size={13} /></button>
                         </div>
                         <div className="edit-modal-body">
