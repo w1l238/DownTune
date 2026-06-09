@@ -6,7 +6,7 @@ services:
     env_file:
       - ./server/.env
     volumes:
-      - /your/path/here:/usr/src/downloads
+      - /home/hermes/dev/DownTune/downloads:/usr/src/downloads
     dns:
       - 8.8.8.8
       - 8.8.4.4
