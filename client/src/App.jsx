@@ -1,21 +1,23 @@
 import { Routes, Route } from 'react-router-dom';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, lazy, Suspense } from 'react';
 import { DownloadProvider, useDownloads } from './contexts/DownloadContext';
+import { LibraryProvider } from './contexts/LibraryContext';
 import { applyAccent, applySpeed, applyDensity } from './utils/appearance';
 import Sidebar from './components/Sidebar';
 import QueueDock from './components/QueueDock';
 import Popup from './components/Popup';
-import Home from './pages/Home';
-import Results from './pages/Results';
-import Settings from './pages/Settings';
-import Library from './pages/Library';
-import Albums from './pages/Albums';
-import Artists from './pages/Artists';
-import Queue from './pages/Queue';
-import AlbumDetail from './pages/AlbumDetail';
-import SearchArtist from './pages/SearchArtist';
-import SearchAlbum from './pages/SearchAlbum';
 import './App.css';
+
+const Home         = lazy(() => import('./pages/Home'));
+const Results      = lazy(() => import('./pages/Results'));
+const Settings     = lazy(() => import('./pages/Settings'));
+const Library      = lazy(() => import('./pages/Library'));
+const Albums       = lazy(() => import('./pages/Albums'));
+const Artists      = lazy(() => import('./pages/Artists'));
+const Queue        = lazy(() => import('./pages/Queue'));
+const AlbumDetail  = lazy(() => import('./pages/AlbumDetail'));
+const SearchArtist = lazy(() => import('./pages/SearchArtist'));
+const SearchAlbum  = lazy(() => import('./pages/SearchAlbum'));
 
 function Shell() {
     const [collapsed, setCollapsed] = useState(() => {
@@ -23,7 +25,6 @@ function Shell() {
     });
     const { downloads, notification, dismissNotification } = useDownloads();
     const hasDownloads = downloads.length > 0;
-    // Delay removing the dock row so the exit animation can finish
     const [showDockRow, setShowDockRow] = useState(false);
     const dockRowTimerRef = useRef(null);
 
@@ -79,18 +80,20 @@ function Shell() {
             <Sidebar collapsed={collapsed} onToggleCollapse={toggleCollapse} />
             <main className="main">
                 <div className="canvas">
-                    <Routes>
-                        <Route path="/" element={<Home />} />
-                        <Route path="/results" element={<Results />} />
-                        <Route path="/library" element={<Library />} />
-                        <Route path="/albums" element={<Albums />} />
-                        <Route path="/artists" element={<Artists />} />
-                        <Route path="/queue" element={<Queue />} />
-                        <Route path="/album/:albumName" element={<AlbumDetail />} />
-                        <Route path="/search/artist/:id" element={<SearchArtist />} />
-                        <Route path="/search/album/:id"  element={<SearchAlbum />} />
-                        <Route path="/settings" element={<Settings />} />
-                    </Routes>
+                    <Suspense fallback={<div style={{ padding: '4rem', textAlign: 'center', opacity: 0.4 }}>Loading…</div>}>
+                        <Routes>
+                            <Route path="/" element={<Home />} />
+                            <Route path="/results" element={<Results />} />
+                            <Route path="/library" element={<Library />} />
+                            <Route path="/albums" element={<Albums />} />
+                            <Route path="/artists" element={<Artists />} />
+                            <Route path="/queue" element={<Queue />} />
+                            <Route path="/album/:albumName" element={<AlbumDetail />} />
+                            <Route path="/search/artist/:id" element={<SearchArtist />} />
+                            <Route path="/search/album/:id"  element={<SearchAlbum />} />
+                            <Route path="/settings" element={<Settings />} />
+                        </Routes>
+                    </Suspense>
                 </div>
             </main>
             <QueueDock />
@@ -108,7 +111,9 @@ function Shell() {
 function App() {
     return (
         <DownloadProvider>
-            <Shell />
+            <LibraryProvider>
+                <Shell />
+            </LibraryProvider>
         </DownloadProvider>
     );
 }
