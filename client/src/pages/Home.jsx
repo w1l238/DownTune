@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { FiMusic, FiDisc, FiUsers, FiDownload, FiSearch, FiX, FiClock, FiSliders } from 'react-icons/fi';
 import { API_BASE_URL } from '../config';
-import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { useLibrary } from '../hooks/useLibrary';
 import MobileSearchBar from '../components/MobileSearchBar';
 import './css/Home.css';
 
@@ -41,27 +41,16 @@ const SliderRow = ({ label, value, min, max, onChange }) => (
 );
 
 const Home = () => {
-    const [songs, setSongs] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const { songs, loading } = useLibrary();
     const [query, setQuery] = useState('');
     const [showPrefs, setShowPrefs] = useState(false);
     const [prefs, setPrefs] = useState(loadPrefs);
     const [draft, setDraft] = useState(loadPrefs);
     const navigate = useNavigate();
 
-    const fetchLibrary = useCallback(() => {
-        fetch(`${API_BASE_URL}/api/library`)
-            .then(r => r.json())
-            .then(data => { setSongs(data); setLoading(false); })
-            .catch(() => setLoading(false));
-    }, []);
-
     useEffect(() => {
         document.title = 'Home — DownTune';
-        fetchLibrary();
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-    useAutoRefresh(fetchLibrary);
+    }, []);
 
     const totalAlbums = useMemo(() => new Set(songs.map(s => s.album || 'Unknown')).size, [songs]);
     const totalArtists = useMemo(() => new Set(songs.map(s => s.artist || 'Unknown')).size, [songs]);
