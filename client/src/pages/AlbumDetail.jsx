@@ -5,6 +5,7 @@ import { FiArrowLeft, FiChevronLeft, FiHeart, FiTrash2, FiMoreVertical, FiEdit, 
 import { LuHeartOff } from 'react-icons/lu';
 import toast, { Toaster } from 'react-hot-toast';
 import { API_BASE_URL } from '../config';
+import { apiFetch } from '../utils/apiClient';
 import './css/Library.css';
 
 const AlbumDetail = () => {
@@ -40,7 +41,13 @@ const AlbumDetail = () => {
 
     const album = useMemo(() => {
         if (songs.length === 0) return null;
-        return { name: albumName, artist: songs[0].artist || 'Unknown Artist', artId: songs[0].id, songs };
+        return {
+            name: albumName,
+            artist: songs[0].artist || 'Unknown Artist',
+            artId: songs[0].id,
+            songs,
+            artworkUrl: songs[0].artworkUrl || null,
+        };
     }, [songs, albumName]);
 
     const formatDuration = (s) => {
@@ -56,11 +63,19 @@ const AlbumDetail = () => {
         return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     };
 
+    const getFileFormatLabel = (song) => {
+        if (song.fileFormat) return song.fileFormat.toUpperCase();
+        if (song.path) {
+            const ext = song.path.split('.').pop();
+            if (ext && ext.length <= 4) return ext.toUpperCase();
+        }
+        return null;
+    };
+
     const toggleFavorite = async (song) => {
         setSongs(prev => prev.map(s => s.id === song.id ? { ...s, isLiked: !s.isLiked } : s));
         try {
-            const res = await fetch(`${API_BASE_URL}/api/files/${encodeURIComponent(song.id)}/toggle-favorite`, { method: 'POST' });
-            if (!res.ok) setSongs(prev => prev.map(s => s.id === song.id ? { ...s, isLiked: song.isLiked } : s));
+            await apiFetch(`/api/files/${encodeURIComponent(song.id)}/toggle-favorite`, { method: 'POST' });
         } catch {
             setSongs(prev => prev.map(s => s.id === song.id ? { ...s, isLiked: song.isLiked } : s));
         }
@@ -80,17 +95,11 @@ const AlbumDetail = () => {
         const prev = songs.map(s => ({ ...s }));
         setSongs(songs.map(s => selectedIds.includes(s.id) ? { ...s, isLiked: shouldLike } : s));
         try {
-            const res = await fetch(`${API_BASE_URL}/api/library/bulk/favorite`, {
+            await apiFetch('/api/library/bulk/favorite', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: selectedIds, shouldLike }),
+                body: { ids: selectedIds, shouldLike },
             });
-            if (!res.ok) {
-                setSongs(prev);
-                toast.error('Failed to update favorites');
-            } else {
-                toast.success(`${shouldLike ? 'Liked' : 'Unliked'} ${selectedIds.length} songs`);
-            }
+            toast.success(`${shouldLike ? 'Liked' : 'Unliked'} ${selectedIds.length} songs`);
         } catch {
             setSongs(prev);
             toast.error('Network error');
@@ -100,24 +109,18 @@ const AlbumDetail = () => {
     const handleBulkDelete = async () => {
         if (selectedIds.length === 0) return;
         try {
-            const res = await fetch(`${API_BASE_URL}/api/library/bulk/delete`, {
+            const results = await apiFetch('/api/library/bulk/delete', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: selectedIds }),
+                body: { ids: selectedIds },
             });
-            if (res.ok) {
-                const results = await res.json();
-                const successIds = results.success;
-                const remaining = songs.filter(s => !successIds.includes(s.id));
-                setSongs(remaining);
-                setSelectedIds([]);
-                setBulkDeleteModal({ show: false, count: 0 });
-                toast.success(`Deleted ${successIds.length} songs`);
-                if (results.failed?.length > 0) toast.error(`Failed to delete ${results.failed.length} songs`);
-                if (remaining.length === 0) navigate(-1);
-            } else {
-                toast.error('Failed to delete songs');
-            }
+            const successIds = results.success;
+            const remaining = songs.filter(s => !successIds.includes(s.id));
+            setSongs(remaining);
+            setSelectedIds([]);
+            setBulkDeleteModal({ show: false, count: 0 });
+            toast.success(`Deleted ${successIds.length} songs`);
+            if (results.failed?.length > 0) toast.error(`Failed to delete ${results.failed.length} songs`);
+            if (remaining.length === 0) navigate(-1);
         } catch {
             toast.error('Network error during bulk delete');
         }
@@ -142,13 +145,11 @@ const AlbumDetail = () => {
         const ids = songs.map(s => s.id);
         setSongs(prev => prev.map(s => ({ ...s, isLiked: shouldLike })));
         try {
-            const res = await fetch(`${API_BASE_URL}/api/library/bulk/favorite`, {
+            await apiFetch('/api/library/bulk/favorite', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids, shouldLike }),
+                body: { ids, shouldLike },
             });
-            if (!res.ok) setSongs(prev => prev.map(s => ({ ...s, isLiked: !shouldLike })));
-            else toast.success(shouldLike ? `Liked all songs in "${albumName}"` : `Unliked all songs in "${albumName}"`);
+            toast.success(shouldLike ? `Liked all songs in "${albumName}"` : `Unliked all songs in "${albumName}"`);
         } catch {
             setSongs(prev => prev.map(s => ({ ...s, isLiked: !shouldLike })));
         }
@@ -162,9 +163,7 @@ const AlbumDetail = () => {
         if (!editModal.song) return;
         setIsEnriching(true);
         try {
-            const res = await fetch(`${API_BASE_URL}/api/files/${encodeURIComponent(editModal.song.id)}/enrich`, { method: 'POST' });
-            const data = await res.json();
-            if (!res.ok) { toast.error(data.error || 'Failed to fetch metadata'); return; }
+            const data = await apiFetch(`/api/files/${encodeURIComponent(editModal.song.id)}/enrich`, { method: 'POST' });
             if (data.found.length === 0) {
                 toast('Nothing new found', { icon: 'ℹ️' });
             } else {
@@ -201,10 +200,9 @@ const AlbumDetail = () => {
         const { song } = editModal;
         if (!song) return;
         try {
-            const res = await fetch(`${API_BASE_URL}/api/files/${encodeURIComponent(song.id)}/metadata`, {
+            await apiFetch(`/api/files/${encodeURIComponent(song.id)}/metadata`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+                body: {
                     title: song.title,
                     artist: song.artist,
                     album: song.album,
@@ -216,21 +214,13 @@ const AlbumDetail = () => {
                     comment: song.comment,
                     lyrics: song.lyrics,
                     artworkUrl: song.artworkUrl,
-                }),
+                },
             });
-            if (res.ok) {
-                toast.success('Metadata updated');
-                setEditModal({ show: false, song: null });
-                // Re-fetch to reflect any changes (e.g. title, artist)
-                const libRes = await fetch(`${API_BASE_URL}/api/library`);
-                if (libRes.ok) {
-                    const data = await libRes.json();
-                    setSongs(data.filter(s => (s.album || 'Unknown Album') === albumName));
-                }
-            } else {
-                const data = await res.json();
-                toast.error(data.error || 'Failed to update metadata');
-            }
+            toast.success('Metadata updated');
+            setEditModal({ show: false, song: null });
+            // Re-fetch to reflect any changes (e.g. title, artist)
+            const data = await apiFetch('/api/library');
+            setSongs(data.filter(s => (s.album || 'Unknown Album') === albumName));
         } catch {
             toast.error('Network error saving metadata');
         }
@@ -238,15 +228,11 @@ const AlbumDetail = () => {
 
     const confirmDelete = async () => {
         try {
-            const res = await fetch(`${API_BASE_URL}/api/files/${encodeURIComponent(deleteModal.songId)}`, { method: 'DELETE' });
-            if (res.ok) {
-                const remaining = songs.filter(s => s.id !== deleteModal.songId);
-                setSongs(remaining);
-                toast.success(`Deleted "${deleteModal.songTitle}"`);
-                if (remaining.length === 0) navigate(-1);
-            } else {
-                toast.error('Failed to delete song');
-            }
+            await apiFetch(`/api/files/${encodeURIComponent(deleteModal.songId)}`, { method: 'DELETE' });
+            const remaining = songs.filter(s => s.id !== deleteModal.songId);
+            setSongs(remaining);
+            toast.success(`Deleted "${deleteModal.songTitle}"`);
+            if (remaining.length === 0) navigate(-1);
         } catch {
             toast.error('Network error deleting song');
         } finally {
@@ -293,7 +279,7 @@ const AlbumDetail = () => {
                 </button>
                 <div className="album-view-art">
                     <img
-                        src={`${API_BASE_URL}/api/files/${encodeURIComponent(album.artId)}/art`}
+                        src={album.artworkUrl || `${API_BASE_URL}/api/files/${encodeURIComponent(album.artId)}/art`}
                         alt={album.name}
                         onError={(e) => { e.target.style.display = 'none'; }}
                     />
@@ -345,6 +331,7 @@ const AlbumDetail = () => {
                     </div>
                     <div>Title</div>
                     <div>Duration</div>
+                    <div className="hide-mobile">Format</div>
                     <div className="hide-mobile">Size</div>
                     <div />
                 </div>
@@ -361,6 +348,16 @@ const AlbumDetail = () => {
                         </div>
                         <div className="song-row-title">{song.title}</div>
                         <div className="song-row-duration">{formatDuration(song.duration)}</div>
+                        <div className="song-row-format hide-mobile">
+                            {getFileFormatLabel(song) && (
+                                <span
+                                    className={`song-format-badge fmt-${getFileFormatLabel(song).toLowerCase()}`}
+                                    aria-label={`Audio format ${getFileFormatLabel(song)}`}
+                                >
+                                    {getFileFormatLabel(song)}
+                                </span>
+                            )}
+                        </div>
                         <div className="song-row-size hide-mobile">{formatSize(song.size)}</div>
                         {/* Mobile: three-dot menu */}
                         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', opacity: isSelectionMode ? 0 : 1, pointerEvents: isSelectionMode ? 'none' : 'auto' }}>
@@ -447,7 +444,17 @@ const AlbumDetail = () => {
                     <div className="modal-backdrop" style={{ zIndex: 2001 }} onClick={() => setEditModal({ show: false, song: null })}>
                     <div className="modal-content edit-modal" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <span className="modal-title"><FiEdit size={13} /> Edit Metadata</span>
+                            <span className="modal-title">
+                                <FiEdit size={13} /> Edit Metadata
+                                {getFileFormatLabel(editModal.song) && (
+                                    <span
+                                        className={`song-format-badge fmt-${getFileFormatLabel(editModal.song).toLowerCase()}`}
+                                        aria-label={`Audio format ${getFileFormatLabel(editModal.song)}`}
+                                    >
+                                        {getFileFormatLabel(editModal.song)}
+                                    </span>
+                                )}
+                            </span>
                             <button className="modal-close-btn" onClick={() => setEditModal({ show: false, song: null })}><FiX size={13} /></button>
                         </div>
                         <div className="edit-modal-body">
