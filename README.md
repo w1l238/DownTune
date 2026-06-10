@@ -51,3 +51,8 @@ Yes, this project does use large language models (or AI) for rapid development a
 
 ## Docker
 If you want to run it in a docker container edit `docker-compose.yml` to your configuration and run `docker-compose up --build -d` to get it running. You can then proceed with step 2 & 3 if you would like to use spotify. I recommend using the WebUI for the API keys if you are running in docker.
+
+## Issues
+There are some current issues being investigated:
+
+- MacOS certificate verify failing using yt-dlp
