@@ -24,6 +24,9 @@ export const runYtDlp = (args) => {
       PATH: existsSync(venvBin) ? `${venvBin}:${basePath}` : basePath,
       HOME: '/tmp',
     };
+    for (const v of ['SSL_CERT_FILE', 'SSL_CERT_DIR', 'REQUESTS_CA_BUNDLE', 'CURL_CA_BUNDLE']) {
+      if (process.env[v]) childEnv[v] = process.env[v];
+    }
     if (process.env.LANG) childEnv.LANG = process.env.LANG;
     if (process.env.LC_ALL) childEnv.LC_ALL = process.env.LC_ALL;
 
