@@ -12,14 +12,12 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "18": "^0.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^7.5.1",
     "music-metadata": "^11.12.3",
     "node-id3": "^0.2.6",
-    "p-limit": "^7.3.0",
-    "ytdlp-nodejs": "^3.4.4"
+    "p-limit": "^7.3.0"
   }
 }
