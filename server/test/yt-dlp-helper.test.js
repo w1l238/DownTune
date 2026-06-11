@@ -17,14 +17,18 @@ describe('resolveYtDlpPython', () => {
     assert.equal(result, '/opt/python3');
   });
 
-  test('falls back to python3 when HOME has no venv', () => {
-    const result = resolveYtDlpPython({ HOME: '/nonexistent-home-xyz-downtune' });
+  test('falls back to platform default when HOME has no venv', () => {
+    const result = resolveYtDlpPython({ HOME: '/nonexistent-home-xyz-downtune' }, 'linux');
     assert.equal(result, 'python3');
+    const resultWin = resolveYtDlpPython({ HOME: '/nonexistent-home-xyz-downtune' }, 'win32');
+    assert.equal(resultWin, 'python');
   });
 
-  test('falls back to python3 when HOME is absent', () => {
-    const result = resolveYtDlpPython({});
+  test('falls back to platform default when HOME is absent', () => {
+    const result = resolveYtDlpPython({}, 'linux');
     assert.equal(result, 'python3');
+    const resultWin = resolveYtDlpPython({}, 'win32');
+    assert.equal(resultWin, 'python');
   });
 
   test('detects setup-script venv when present', { skip: !existsSync(VENV_PYTHON) }, () => {

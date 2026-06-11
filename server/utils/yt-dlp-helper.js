@@ -2,12 +2,12 @@ import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 import { info } from '../logger.js';
 
-// Resolution order: YT_DLP_PYTHON env override → setup-script venv → system python3
-export function resolveYtDlpPython(env = process.env) {
+// Resolution order: YT_DLP_PYTHON env override → setup-script venv → system python3/python
+export function resolveYtDlpPython(env = process.env, platform = process.platform) {
   if (env.YT_DLP_PYTHON) return env.YT_DLP_PYTHON;
-  const candidate = `${env.HOME ?? '/root'}/.local/share/downtune-venv/bin/python3`;
+  const candidate = `${env.HOME ?? env.USERPROFILE ?? '/root'}/.local/share/downtune-venv/bin/python3`;
   if (existsSync(candidate)) return candidate;
-  return 'python3';
+  return platform === 'win32' ? 'python' : 'python3';
 }
 
 const PYTHON_BIN = resolveYtDlpPython();
@@ -20,12 +20,12 @@ export const runYtDlp = (args) => {
     const fullArgs = ['-m', 'yt_dlp', ...caArgs, ...args];
     info(`[DEBUG] Executing: ${PYTHON_BIN} ${fullArgs.join(' ')}`);
 
-    const homeDir = process.env.HOME ?? '/root';
+    const homeDir = process.env.HOME ?? process.env.USERPROFILE ?? '/root';
     const venvBin = `${homeDir}/.local/share/downtune-venv/bin`;
     const basePath = process.env.PATH || '/usr/bin:/usr/local/bin:/bin';
     const childEnv = {
       PATH: existsSync(venvBin) ? `${venvBin}:${basePath}` : basePath,
-      HOME: process.env.HOME ?? '/tmp',
+      HOME: process.env.HOME ?? process.env.USERPROFILE ?? '/tmp',
     };
     for (const v of ['SSL_CERT_FILE', 'SSL_CERT_DIR', 'REQUESTS_CA_BUNDLE', 'CURL_CA_BUNDLE']) {
       if (process.env[v]) childEnv[v] = process.env[v];

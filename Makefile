@@ -17,6 +17,7 @@ help:
 	@echo "  make clean     Remove node_modules from client and server"
 
 setup:
+	npm install
 	npm install --prefix client
 	npm install --prefix server
 	@echo ""

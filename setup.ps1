@@ -49,6 +49,13 @@ Write-Host "  DownTune — Dependency Setup" -ForegroundColor White
 Write-Host "  ─────────────────────────────"
 Write-Host ""
 
+# ─── Project root guard ───────────────────────────────────────────────────────
+
+if (-not (Test-Path "Makefile") -or -not (Test-Path "package.json")) {
+    Write-Host "  [setup] ERROR: Run this script from the DownTune project root (the directory containing Makefile and package.json)." -ForegroundColor Red
+    exit 1
+}
+
 # ─── Determine mode ───────────────────────────────────────────────────────────
 
 $Mode = ""
@@ -292,14 +299,19 @@ function Invoke-BaremetalSetup {
 
     Write-Host ""
 
-    # ── App dependencies (delegated to make setup) ────────────────────────────
+    # ── App dependencies ──────────────────────────────────────────────────────
 
-    if (-not (Get-Command make -ErrorAction SilentlyContinue)) {
-        Write-Fail "make not found — cannot run 'make setup'. Install make (choco install make  -or-  winget install GnuWin32.Make) and re-run."
-    }
     Write-Info "Installing app dependencies..."
-    make setup
-    if ($LASTEXITCODE -ne 0) { Write-Fail "make setup failed. Check the output above." }
+    if (Get-Command make -ErrorAction SilentlyContinue) {
+        make setup
+        if ($LASTEXITCODE -ne 0) { Write-Fail "make setup failed. Check the output above." }
+    } else {
+        Write-Warn "make not available — falling back to npm install directly."
+        npm install --prefix client
+        if ($LASTEXITCODE -ne 0) { Write-Fail "npm install (client) failed." }
+        npm install --prefix server
+        if ($LASTEXITCODE -ne 0) { Write-Fail "npm install (server) failed." }
+    }
 
     Write-Host ""
 
@@ -422,9 +434,14 @@ Write-Host ""
 
 switch ($Mode) {
     "baremetal" {
-        Write-Host "  make dev   " -ForegroundColor Cyan -NoNewline; Write-Host "— development mode (hot reload)"
-        Write-Host "  make run   " -ForegroundColor Cyan -NoNewline; Write-Host "— build and run in production mode"
-        Write-Host "  make help  " -ForegroundColor Cyan -NoNewline; Write-Host "— see all available commands"
+        Write-Host "  npm run dev                    " -ForegroundColor Cyan -NoNewline; Write-Host "— development mode (hot reload)"
+        if (Get-Command make -ErrorAction SilentlyContinue) {
+            Write-Host "  make run                       " -ForegroundColor Cyan -NoNewline; Write-Host "— build and run in production mode"
+            Write-Host "  make help                      " -ForegroundColor Cyan -NoNewline; Write-Host "— see all available commands"
+        } else {
+            Write-Host "  npm run build --prefix client  " -ForegroundColor Cyan -NoNewline; Write-Host "— build client for production"
+            Write-Host "  node server/index.js           " -ForegroundColor Cyan -NoNewline; Write-Host "— run server in production mode"
+        }
     }
     "docker" {
         if ($script:DockerComposeStarted) {
@@ -444,8 +461,13 @@ switch ($Mode) {
         }
     }
     "all" {
-        Write-Host "  make dev   " -ForegroundColor Cyan -NoNewline; Write-Host "— development mode (hot reload)"
-        Write-Host "  make run   " -ForegroundColor Cyan -NoNewline; Write-Host "— build and run in production mode"
+        Write-Host "  npm run dev                    " -ForegroundColor Cyan -NoNewline; Write-Host "— development mode (hot reload)"
+        if (Get-Command make -ErrorAction SilentlyContinue) {
+            Write-Host "  make run                       " -ForegroundColor Cyan -NoNewline; Write-Host "— build and run in production mode"
+        } else {
+            Write-Host "  npm run build --prefix client  " -ForegroundColor Cyan -NoNewline; Write-Host "— build client for production"
+            Write-Host "  node server/index.js           " -ForegroundColor Cyan -NoNewline; Write-Host "— run server in production mode"
+        }
         Write-Host ""
         if ($script:DockerComposeStarted) {
             Write-Host "  Docker:" -ForegroundColor White

@@ -18,6 +18,13 @@ echo -e "${BOLD}  DownTune — Dependency Setup${RESET}"
 echo "  ─────────────────────────────"
 echo ""
 
+# ─── Project root guard ───────────────────────────────────────────────────────
+
+if [ ! -f Makefile ] || [ ! -f package.json ]; then
+  echo -e "${RED}${BOLD}[setup]${RESET} Run this script from the DownTune project root (the directory containing Makefile and package.json)." >&2
+  exit 1
+fi
+
 # ─── Argument parsing ─────────────────────────────────────────────────────────
 
 MODE=""
