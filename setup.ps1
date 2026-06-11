@@ -304,7 +304,13 @@ function Invoke-BaremetalSetup {
     Write-Host ""
 
     if (-not (Test-Path "server\.env")) {
-        Write-Warn "No server\.env found. Copy server\.env.example to server\.env and fill in your credentials before running."
+        if (Test-Path "server\.env.example") {
+            Copy-Item "server\.env.example" "server\.env"
+            Write-Success "Created server\.env from server\.env.example."
+            Write-Warn "Review server\.env and fill in any credentials before running."
+        } else {
+            Write-Warn "No server\.env found. Create it from server\.env.example before running."
+        }
     }
 }
 
