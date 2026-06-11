@@ -376,7 +376,13 @@ setup_baremetal() {
   echo ""
 
   if [ ! -f server/.env ]; then
-    warn "No server/.env found. Copy server/.env.example to server/.env and fill in your credentials before running."
+    if [ -f server/.env.example ]; then
+      cp server/.env.example server/.env
+      success "Created server/.env from server/.env.example."
+      warn "Review server/.env and fill in any credentials before running."
+    else
+      warn "No server/.env found. Create it from server/.env.example before running."
+    fi
   fi
 }
 

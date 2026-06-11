@@ -14,7 +14,10 @@ const PYTHON_BIN = resolveYtDlpPython();
 
 export const runYtDlp = (args) => {
   return new Promise((resolve, reject) => {
-    const fullArgs = ['-m', 'yt_dlp', ...args];
+    const caArgs = process.env.YT_DLP_CA_CERT
+      ? ['--ca-cert', process.env.YT_DLP_CA_CERT]
+      : [];
+    const fullArgs = ['-m', 'yt_dlp', ...caArgs, ...args];
     info(`[DEBUG] Executing: ${PYTHON_BIN} ${fullArgs.join(' ')}`);
 
     const homeDir = process.env.HOME ?? '/root';
@@ -22,8 +25,12 @@ export const runYtDlp = (args) => {
     const basePath = process.env.PATH || '/usr/bin:/usr/local/bin:/bin';
     const childEnv = {
       PATH: existsSync(venvBin) ? `${venvBin}:${basePath}` : basePath,
-      HOME: '/tmp',
+      HOME: process.env.HOME ?? '/tmp',
     };
+    for (const v of ['SSL_CERT_FILE', 'SSL_CERT_DIR', 'REQUESTS_CA_BUNDLE', 'CURL_CA_BUNDLE']) {
+      if (process.env[v]) childEnv[v] = process.env[v];
+    }
+    if (process.env.YT_DLP_CA_CERT) childEnv.YT_DLP_CA_CERT = process.env.YT_DLP_CA_CERT;
     if (process.env.LANG) childEnv.LANG = process.env.LANG;
     if (process.env.LC_ALL) childEnv.LC_ALL = process.env.LC_ALL;
 
