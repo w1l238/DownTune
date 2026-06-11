@@ -1,5 +1,5 @@
 # Use an official Node.js runtime as a parent image
-FROM node:18-slim
+FROM node:20-slim
 
 # Install Python, pip, and ffmpeg; clean up apt cache to keep image lean
 RUN apt-get update && apt-get install -y --no-install-recommends \
