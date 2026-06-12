@@ -353,8 +353,10 @@ const Settings = () => {
                             step="0.01"
                             value={bgDim}
                             disabled={!appliedBgImage}
+                            style={{ '--fill': `${Math.round((bgDim / 0.85) * 100)}%` }}
                             onChange={e => {
                                 const v = parseFloat(e.target.value);
+                                e.target.style.setProperty('--fill', `${Math.round((v / 0.85) * 100)}%`);
                                 setBgDim(v);
                                 document.body.style.setProperty('--bg-dim', v);
                             }}
@@ -373,8 +375,10 @@ const Settings = () => {
                             max="20"
                             step="1"
                             value={blurBase}
+                            style={{ '--fill': `${Math.round((blurBase / 20) * 100)}%` }}
                             onChange={e => {
                                 const v = parseFloat(e.target.value);
+                                e.target.style.setProperty('--fill', `${Math.round((v / 20) * 100)}%`);
                                 setBlurBase(v);
                                 applyBlur(v);
                             }}

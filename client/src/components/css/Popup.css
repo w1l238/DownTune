@@ -1,19 +1,24 @@
+/* ── Desktop: top-right slide-in ── */
 .popup {
     position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 0.4rem 1rem;
-    border-radius: var(--sd-radius-xl);
+    top: 28px;
+    right: 28px;
+    padding: 0.6rem 1rem;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
     color: white;
     display: flex;
     align-items: center;
-    gap: 1rem;
-    z-index: 1000;
+    gap: 0.75rem;
+    z-index: 10000;
+    min-width: 220px;
+    max-width: 340px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(var(--sd-blur-lg));
     opacity: 0;
-    transform: translateX(20px);
-    transition: opacity var(--sd-dur-slow) var(--sd-ease-glass), transform var(--sd-dur-slow) var(--sd-ease-glass);
-    border: 1px solid var(--sd-glass-border-strong);
-    backdrop-filter: blur(var(--sd-blur-sm));
+    transform: translateX(calc(100% + 28px));
+    transition: opacity var(--sd-dur-slow) var(--sd-ease-glass),
+                transform var(--sd-dur-slow) var(--sd-ease-glass);
 }
 
 .popup.show {
@@ -21,48 +26,77 @@
     transform: translateX(0);
 }
 
-.popup.show p, .popup.hide p {
-    margin: 0.5rem;
-}
-
 .popup.hide {
     opacity: 0;
-    transform: translateX(20px);
+    transform: translateX(calc(100% + 28px));
 }
 
+.popup p {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    flex: 1;
+}
+
+/* ── Type variants ── */
 .popup.success {
-    background-color: var(--tf-accent-soft);
+    background: rgba(20, 184, 166, 0.2);
+    border-color: rgba(20, 184, 166, 0.4);
 }
 
 .popup.error {
-    background-color: var(--sd-error);
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
 }
 
 .popup.info {
-    background-color: var(--sd-info);
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.4);
 }
 
+/* ── Close button ── */
 .close-btn {
     background: none !important;
     border: none !important;
     backdrop-filter: none !important;
-    color: white;
-    font-size: 1rem;
-    cursor: pointer;
-    margin: 0;
-    padding: 0.2rem 0;
     box-shadow: none !important;
-    transform: none !important;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    flex-shrink: 0;
+    transition: color 0.15s ease;
 }
 
 .close-btn:hover {
-    background-color: transparent !important;
+    background: none !important;
+    box-shadow: none !important;
     transform: none !important;
+    color: white;
 }
 
+/* ── Mobile: floating top banner ── */
 @media (max-width: 768px) {
     .popup {
-        top: 10px;
-        right: 10px;
+        top: 12px;
+        left: 12px;
+        right: 12px;
+        min-width: 0;
+        max-width: none;
+        border-radius: 18px;
+        padding: 0.85rem 1.1rem;
+        transform: translateY(calc(-100% - 20px));
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+        font-size: 1rem;
+    }
+
+    .popup.show {
+        transform: translateY(0);
+    }
+
+    .popup.hide {
+        transform: translateY(calc(-100% - 20px));
     }
 }

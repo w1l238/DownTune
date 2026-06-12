@@ -494,6 +494,11 @@
         display: none;
     }
 
+    /* Collapsed desktop rule is more specific — re-assert hidden on mobile */
+    .sidebar.collapsed .side-sync-wrap {
+        display: none;
+    }
+
     /* Show mobile nav */
     .mobile-nav-section {
         display: flex;

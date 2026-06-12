@@ -246,6 +246,12 @@
     color: white;
 }
 
+@property --fill {
+    syntax: '<percentage>';
+    inherits: false;
+    initial-value: 0%;
+}
+
 /* Dim slider */
 .dim-slider-row {
     display: flex;
@@ -257,36 +263,52 @@
     flex: 1;
     -webkit-appearance: none;
     appearance: none;
-    height: 4px;
-    border-radius: 2px;
-    background: var(--sd-glass-20);
+    height: 18px;
+    border-radius: 9px;
+    background: linear-gradient(
+        to right,
+        var(--tf-accent-bright) var(--fill, 0%),
+        rgba(255, 255, 255, 0.1) var(--fill, 0%)
+    );
     outline: none;
     cursor: pointer;
+    transition: --fill 80ms linear;
 }
 
 .dim-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: var(--tf-accent-bright);
+    width: 2px;
+    height: 18px;
+    background: transparent;
     cursor: pointer;
-    box-shadow: 0 0 0 3px var(--tf-accent-tint);
-    transition: box-shadow var(--sd-dur-fast) var(--sd-ease-glass);
+    box-shadow: none;
 }
 
-.dim-slider::-webkit-slider-thumb:hover {
-    box-shadow: 0 0 0 5px var(--tf-accent-tint);
+.dim-slider::-webkit-slider-runnable-track {
+    border-radius: 9px;
+}
+
+.dim-slider::-moz-range-track {
+    height: 18px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.dim-slider::-moz-range-progress {
+    height: 18px;
+    border-radius: 9px 0 0 9px;
+    background: var(--tf-accent-bright);
 }
 
 .dim-slider::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
+    width: 2px;
+    height: 18px;
+    border-radius: 0;
     border: none;
-    background: var(--tf-accent-bright);
+    background: transparent;
     cursor: pointer;
+    box-shadow: none;
 }
 
 .dim-value {
@@ -347,11 +369,7 @@
     }
 
     .btn-save {
-        align-self: stretch;
-        justify-content: center;
-        padding-top: 1rem;
-        padding-bottom: 1rem;
-        font-size: 1.05rem;
+        align-self: auto;
     }
 }
 
@@ -374,8 +392,8 @@
 
 .setting-choice-pill {
     position: relative;
-    flex: 1 1 auto;
-    min-width: fit-content;
+    flex: 1 1 0;
+    min-width: 0;
     padding: 0.45rem 0.9rem;
     border-radius: calc(var(--sd-radius-md) - 4px);
     border: none !important;
@@ -611,29 +629,95 @@
 
     .settings-save-bar {
         position: static;
-        align-items: center;
-        flex-direction: row;
         padding: 0.75rem;
         border-radius: var(--sd-radius-lg);
         background: var(--sd-glass-05);
         box-shadow: var(--sd-shadow-md);
     }
 
+    .save-status {
+        display: none;
+    }
+
     .save-actions {
-        flex: 0 0 auto;
+        flex: 1;
+        gap: 0.5rem;
     }
 
     .save-actions .btn-reset,
     .save-actions .btn-save {
+        flex: 1;
         justify-content: center;
-        padding-inline: 0.85rem;
+        padding: 0.65rem 0;
+        font-size: 0.9rem;
+        align-self: auto;
     }
 
-    .save-status {
+    .art-style-btn {
+        padding: 0.8rem 1rem;
+    }
+
+    .setting-choice-pill {
+        padding: 0.75rem 0.9rem;
+    }
+
+    .cb-label {
+        min-height: 2.75rem;
+        padding: 0.2rem 0;
+    }
+
+    .settings-input {
+        padding: 0.85rem 1rem;
+        font-size: 0.95rem;
+    }
+
+    .dim-slider {
+        height: 32px;
+        border-radius: 16px;
+    }
+
+    .dim-slider::-webkit-slider-thumb {
+        height: 32px;
+    }
+
+    .dim-slider::-webkit-slider-runnable-track {
+        border-radius: 16px;
+    }
+
+    .dim-slider::-moz-range-track {
+        height: 32px;
+        border-radius: 16px;
+    }
+
+    .dim-slider::-moz-range-progress {
+        height: 32px;
+        border-radius: 16px 0 0 16px;
+    }
+
+    .dim-slider::-moz-range-thumb {
+        height: 32px;
+    }
+
+    .compact-choice-group {
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
+    .setting-choice-pill,
+    .compact-choice-group.wrap-2x2 .setting-choice-pill {
+        flex: none;
+        width: 100%;
         min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+    }
+
+    .art-style-toggle {
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
+    .art-style-btn {
+        flex: none;
+        width: 100%;
     }
 }
 
