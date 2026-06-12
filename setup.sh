@@ -206,8 +206,11 @@ setup_baremetal() {
   if ! python3 -c "import venv" 2>/dev/null; then
     info "Installing python3-venv..."
     case "$PM" in
-      apt) apt_install python3-venv ;;
-      *)   : ;;
+      apt)    apt_install python3-venv ;;
+      dnf)    $SUDO dnf install -y python3-virtualenv 2>/dev/null || $SUDO dnf install -y python3-venv 2>/dev/null || true ;;
+      yum)    $SUDO yum install -y python3-virtualenv 2>/dev/null || $SUDO yum install -y python3-venv 2>/dev/null || true ;;
+      zypper) $SUDO zypper install -y python3-virtualenv 2>/dev/null || true ;;
+      *)      : ;;
     esac
   fi
 
@@ -245,8 +248,12 @@ setup_baremetal() {
         $SUDO pacman -S --noconfirm nodejs npm
         ;;
       zypper)
-        $SUDO zypper install -y nodejs20 npm20 2>/dev/null \
-          || $SUDO zypper install -y nodejs npm
+        if ! $SUDO zypper install -y nodejs20 npm20 2>/dev/null \
+          && ! $SUDO zypper install -y nodejs npm 2>/dev/null; then
+          warn "Node.js not found in default repos. Add the Node.js repo:"
+          warn "  sudo zypper ar https://download.opensuse.org/repositories/devel:/languages:/nodejs/openSUSE_Leap_15.6/ nodejs"
+          warn "  sudo zypper install -y nodejs20 npm20"
+        fi
         ;;
       brew)
         brew install node@20

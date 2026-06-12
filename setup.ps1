@@ -307,6 +307,8 @@ function Invoke-BaremetalSetup {
         if ($LASTEXITCODE -ne 0) { Write-Fail "make setup failed. Check the output above." }
     } else {
         Write-Warn "make not available — falling back to npm install directly."
+        npm install
+        if ($LASTEXITCODE -ne 0) { Write-Fail "npm install (root) failed." }
         npm install --prefix client
         if ($LASTEXITCODE -ne 0) { Write-Fail "npm install (client) failed." }
         npm install --prefix server
