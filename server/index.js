@@ -639,50 +639,20 @@ app.post('/download-song', requireCsrf, downloadLimiter, async (req, res) => {
 });
 
 
-// Endpoint to get environment variables from '~/backend/.env'
-// Structure:
-// SPOTIFY_CLIENT_ID - Client ID from spotify
-// SPOTIFY_CLIENT_SECRET - Client Secret from spotify
-app.get('/config', requireSameOriginRead, async (req, res) => {
-  try {
-    const envPath = path.join(__dirname, '.env');
-    const envContent = await fs.readFile(envPath, 'utf-8');
-    const config = {};
-    envContent.split('\n').forEach(line => {
-      const [key, value] = line.split('=');
-      if (key && value) {
-        if (key.trim() === 'SPOTIFY_CLIENT_ID') config.clientId = value.trim();
-        if (key.trim() === 'SPOTIFY_CLIENT_SECRET') config.hasClientSecret = !!value.trim();
-        if (key.trim() === 'DOWNLOAD_PATH') config.downloadPath = value.trim();
-        if (key.trim() === 'SEARCH_PROVIDER') config.searchProvider = value.trim();
-        if (key.trim() === 'AUDIO_QUALITY_PRESET') config.audioQualityPreset = value.trim();
-        if (key.trim() === 'AUDIO_FORMAT') config.audioFormat = value.trim();
-      }
-    });
-    // Default to spotify if not set
-    if (!config.searchProvider) config.searchProvider = 'spotify';
-    config.audioQualityPreset = getAudioQualityPreset(config.audioQualityPreset);
-    config.audioQualityPresets = getAudioQualityPresetOptions();
-    config.audioFormat = getAudioFormat(config.audioFormat);
-    config.audioFormats = getAudioFormatOptions();
-    res.json(config);
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      res.json({
-        clientId: '',
-        hasClientSecret: false,
-        downloadPath: '',
-        searchProvider: 'spotify',
-        audioQualityPreset: DEFAULT_AUDIO_QUALITY_PRESET,
-        audioQualityPresets: getAudioQualityPresetOptions(),
-        audioFormat: DEFAULT_AUDIO_FORMAT,
-        audioFormats: getAudioFormatOptions(),
-      });
-    } else {
-      error('Error reading .env file:', error);
-      res.status(500).json({ error: 'Failed to read configuration.' });
-    }
-  }
+app.get('/config', requireSameOriginRead, (req, res) => {
+  const env = process.env;
+  const audioQualityPreset = getAudioQualityPreset(env.AUDIO_QUALITY_PRESET);
+  const audioFormat = getAudioFormat(env.AUDIO_FORMAT);
+  res.json({
+    clientId: env.SPOTIFY_CLIENT_ID || '',
+    hasClientSecret: !!env.SPOTIFY_CLIENT_SECRET,
+    downloadPath: env.DOWNLOAD_PATH || '',
+    searchProvider: env.SEARCH_PROVIDER || 'spotify',
+    audioQualityPreset,
+    audioQualityPresets: getAudioQualityPresetOptions(),
+    audioFormat,
+    audioFormats: getAudioFormatOptions(),
+  });
 });
 
 // Endpoint to update environment variables
