@@ -117,6 +117,7 @@ export class MetadataService {
         recording.releases.forEach(release => {
           allPotentialReleases.push({
             release,
+            recording,
             firstReleaseDate: recording['first-release-date']
           });
         });
@@ -210,9 +211,7 @@ export class MetadataService {
 
     // Extract genre — prefer curated genres over folksonomy tags
     let genre = undefined;
-    const sourceRecording = data.recordings.find(r =>
-        r.releases && r.releases.some(rel => rel.title === bestRelease.title)
-    );
+    const sourceRecording = best.recording;
     if (sourceRecording?.genres?.length > 0) {
         genre = sourceRecording.genres[0].name;
     } else if (sourceRecording?.tags?.length > 0) {
