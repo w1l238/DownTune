@@ -1,3 +1,4 @@
+// Timestamps use LOG_TIMEZONE env var (default: UTC)
 const kleuren = {
     info: '\x1b[32m',    // Green
     error: '\x1b[31m',   // Red

@@ -47,7 +47,7 @@ Yes, this project does use large language models (or AI) for rapid development a
 
 ### Spotify Setup (Optional)
 2. Visit [Spotify's Documentation](https://developer.spotify.com/documentation/web-api) on their web-api and walkthrough the app creation process to obtain your spotify api keys if you so choose. 
-3. If you choose Spotify paste those API keys into `backend/.env` or alternatively through the web UI in settings (ensure you choose `Spotify` for the provider to unlock the area for api keys).
+3. If you choose Spotify paste those API keys into `server/.env` or alternatively through the web UI in settings (ensure you choose `Spotify` for the provider to unlock the area for api keys).
 
 ## Docker
 If you want to run it in a docker container edit `docker-compose.yml` to your configuration and run `docker-compose up --build -d` to get it running. You can then proceed with step 2 & 3 if you would like to use spotify. I recommend using the WebUI for the API keys if you are running in docker.
