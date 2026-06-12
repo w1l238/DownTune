@@ -235,7 +235,7 @@ app.get('/api/search', searchLimiter, async (req, res) => {
 });
 
 // Artist detail — top tracks + albums
-app.get('/api/artist/:id', async (req, res) => {
+app.get('/api/artist/:id', searchLimiter, async (req, res) => {
   const { id } = req.params;
   try {
     const provider = getSearchProvider();
@@ -251,7 +251,7 @@ app.get('/api/artist/:id', async (req, res) => {
 });
 
 // Album detail — all tracks
-app.get('/api/album/:id', async (req, res) => {
+app.get('/api/album/:id', searchLimiter, async (req, res) => {
   const { id } = req.params;
   try {
     const provider = getSearchProvider();
@@ -267,7 +267,7 @@ app.get('/api/album/:id', async (req, res) => {
 });
 
 // Legacy Endpoint to search Spotify (kept for compatibility)
-app.get('/search-spotify', async (req, res) => {
+app.get('/search-spotify', searchLimiter, async (req, res) => {
   const query = req.query.q;
   const limit = req.query.limit || 10;
   info(`Spotify Search (Legacy): "${query}" (limit: ${limit})`);
@@ -287,7 +287,7 @@ app.get('/search-spotify', async (req, res) => {
 
 // Helper to sanitize filenames
 const sanitizeFilename = (name) => {
-  return name.replace(/[/\\]/g, '_'); // Replace forward and backward slashes with underscore
+  return name.replace(/[/\\:*?"<>|\x00]/g, '_');
 };
 
 // Endpoint to create folder structure

@@ -5,9 +5,9 @@
 */
 
 const kleuren = {
-    info: '\x1b[32m', // Groen
-    error: '\x1b[31m', // Rood
-    warning: '\x1b[33m', // Geel
+    info: '\x1b[32m', // Green
+    error: '\x1b[31m', // Red
+    warning: '\x1b[33m', // 
     reset: '\x1b[0m' // Reset kleur
 };
 

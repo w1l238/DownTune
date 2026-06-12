@@ -18,7 +18,7 @@ export const runYtDlp = (args) => {
       ? ['--ca-cert', process.env.YT_DLP_CA_CERT]
       : [];
     const fullArgs = ['-m', 'yt_dlp', ...caArgs, ...args];
-    info(`[DEBUG] Executing: ${PYTHON_BIN} ${fullArgs.join(' ')}`);
+    if (process.env.NODE_ENV !== 'production') info(`[DEBUG] Executing: ${PYTHON_BIN} ${fullArgs.join(' ')}`);
 
     const homeDir = process.env.HOME ?? process.env.USERPROFILE ?? '/root';
     const venvBin = `${homeDir}/.local/share/downtune-venv/bin`;
