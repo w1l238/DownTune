@@ -220,7 +220,7 @@ const Library = () => {
             });
 
         } catch (error) {
-             setSongs(songs.map(s => s.id === song.id ? { ...s, isLiked: !song.isLiked } : s));
+             setSongs(songs.map(s => s.id === song.id ? { ...s, isLiked: song.isLiked } : s));
              console.error('Error toggling favorite:', error);
         }
     };

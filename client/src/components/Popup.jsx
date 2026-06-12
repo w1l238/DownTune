@@ -10,19 +10,20 @@ const Popup = ({ message, type, onClose }) => {
             setIsVisible(true);
         }, 50); // Small delay
 
+        let closeTimer;
         const timer = setTimeout(() => {
             // Start fade out before closing
             setIsVisible(false);
             // Allow time for fade-out animation before unmounting
-            const closeTimer = setTimeout(() => {
+            closeTimer = setTimeout(() => {
                 onClose();
             }, 500); // Match this duration to your CSS fade-out transition
-            return () => clearTimeout(closeTimer);
         }, 3000); // Auto-close after 3 seconds
 
         return () => {
             clearTimeout(renderTimer);
             clearTimeout(timer);
+            clearTimeout(closeTimer);
         };
     }, [onClose]);
 
