@@ -1,4 +1,4 @@
-.PHONY: dev run setup lint lint-fix build clean help
+.PHONY: dev run setup lint lint-fix build clean test help
 
 CLIENT_BIN := client/node_modules/.bin
 VENV_BIN   := $(HOME)/.local/share/downtune-venv/bin
@@ -14,6 +14,7 @@ help:
 	@echo "  make lint      Check client for lint errors"
 	@echo "  make lint-fix  Auto-fix fixable lint errors"
 	@echo "  make build     Build client for production"
+	@echo "  make test      Run server test suite"
 	@echo "  make clean     Remove node_modules from client and server"
 
 setup:
@@ -45,6 +46,9 @@ lint-fix:
 
 build:
 	npm run build --prefix client
+
+test:
+	npm run test --prefix server
 
 clean:
 	rm -rf client/node_modules server/node_modules
