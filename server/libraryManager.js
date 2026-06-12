@@ -377,8 +377,8 @@ export async function updateSongMetadata(id, tags) {
 
         await audioMetadataWriter.updateAudioMetadata(fullPath, tags);
 
-        // Clear cache so it rescans on next get
-        libraryCache = [];
+        // Clear cache so it rescans on next get (only if no scan is in progress)
+        if (!isScanning) libraryCache = [];
         return true;
     } catch (err) {
         error(`Error updating metadata: ${err.message}`);

@@ -61,7 +61,7 @@ export class YoutubeMusicProvider extends SongProvider {
             ],
             album: {
               name: albumName,
-              images: videoInfo.thumbnails ? videoInfo.thumbnails.slice(-2).map(t => ({
+              images: Array.isArray(videoInfo.thumbnails) ? videoInfo.thumbnails.slice(-2).map(t => ({
                 url: t.url,
                 height: t.height,
                 width: t.width

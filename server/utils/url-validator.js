@@ -25,7 +25,7 @@ export function isSafeArtworkUrl(urlStr) {
   const hostname = parsed.hostname;
   if (!hostname) return false;
   if (/^localhost$/i.test(hostname)) return false;
-  if (hostname === '::1' || hostname === '[::1]') return false;
+  if (hostname === '[::1]') return false;
   if (PRIVATE_IPv4.some(re => re.test(hostname))) return false;
   if (LOCAL_TLD.test(hostname)) return false;
   return true;
