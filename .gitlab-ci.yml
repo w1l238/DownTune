@@ -1,9 +1,9 @@
 build:
   tags:
     - shared
-  image: docker:24
+  image: docker:27
   services:
-    - docker:24-dind
+    - docker:27-dind
   variables:
     DOCKER_HOST: tcp://docker:2376
     DOCKER_TLS_CERTDIR: "/certs"
