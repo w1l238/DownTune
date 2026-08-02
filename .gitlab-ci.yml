@@ -1,4 +1,6 @@
 test-docker-build:
+  tags:
+    - shared
   image: docker:24
   services:
     - docker:24-dind
