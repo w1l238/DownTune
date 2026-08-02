@@ -1,0 +1,10 @@
+test-docker-build:
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker info
+    - docker build -t test-image -f- . <<EOF
+      FROM alpine
+      RUN echo "docker build works"
+      EOF
