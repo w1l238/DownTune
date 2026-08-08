@@ -137,11 +137,7 @@ e2e:
   stage: test
   image: mcr.microsoft.com/playwright:v1.62.0-noble
   cache:
-    key:
-      files:
-        - package-lock.json
-        - client/package-lock.json
-        - server/package-lock.json
+    key: "e2e-$CI_COMMIT_REF_SLUG"
     paths:
       - .npm/
   needs:
