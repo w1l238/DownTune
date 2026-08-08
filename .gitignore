@@ -1,14 +1,18 @@
 .env
-downloads/
-node_modules/
-GEMINI.md
+downloads
+node_modules
 Implementation-Plan.md
 WhatNEXT.md
+
+## Caveman Skill
+.agents
+skills-lock.json
 
 ## LLMs
 GEMINI.md
 CLAUDE.md
 AGENTS.md
+GEMINI.md
 
 # UI Redesign Files
 v2-design/
