@@ -52,6 +52,64 @@ Yes, this project does use large language models (or AI) for rapid development a
 ## Docker
 If you want to run it in a docker container edit `docker-compose.yml` to your configuration and run `docker-compose up --build -d` to get it running. You can then proceed with step 2 & 3 if you would like to use spotify. I recommend using the WebUI for the API keys if you are running in docker.
 
+## Continuous Integration
+
+The GitLab pipeline runs frontend and backend linting, a production frontend build, backend unit tests with JUnit and coverage reporting, and Playwright browser smoke tests. Container jobs are manual until the self-hosted runner's Docker-in-Docker configuration has been verified.
+
+The runner must use the Docker executor. Docker-in-Docker jobs require the following settings in the runner's `config.toml`:
+
+```toml
+[[runners]]
+  executor = "docker"
+
+  [runners.docker]
+    image = "docker:27.5.1-cli"
+    privileged = true
+    volumes = ["/certs/client", "/cache"]
+```
+
+Restart GitLab Runner after changing its configuration. Run the manual `docker-runner-check` job first. A successful job must print both client and server versions and run the `hello-world` image. If the self-hosted registry uses an internal certificate authority, install that CA in the runner host, Docker-in-Docker service trust configuration, and production Docker host.
+
+Useful local checks:
+
+```bash
+npm run lint
+npm run build
+npm test
+npm run test:e2e
+
+docker build -t downtune-client:ci ./client
+docker build -t downtune-server:ci ./server
+COMPOSE_PROJECT_NAME=downtune-ci docker compose -f docker-compose.ci.yml up -d --no-build --wait server client
+COMPOSE_PROJECT_NAME=downtune-ci docker compose -f docker-compose.ci.yml --profile test run --rm smoke
+COMPOSE_PROJECT_NAME=downtune-ci docker compose -f docker-compose.ci.yml down -v
+```
+
+### Container publishing
+
+The protected manual `publish-images` job pushes client and server images to the GitLab Container Registry under commit-SHA tags. It exports digest-pinned `CLIENT_IMAGE` and `SERVER_IMAGE` values for deployment. No registry password is stored in the repository; GitLab's job token performs the push.
+
+### Production deployment
+
+Deployment is protected and manual. Configure these GitLab CI/CD variables:
+
+- `DEPLOY_HOST`, `DEPLOY_USER`, and `DEPLOY_PATH`
+- `SSH_PRIVATE_KEY` as a protected file variable
+- `SSH_KNOWN_HOSTS` as a protected file variable
+- `REGISTRY_DEPLOY_USER` and `REGISTRY_DEPLOY_PASSWORD` from a protected deploy token with only `read_registry`
+- `PRODUCTION_URL`
+
+Mark credentials as protected and masked where GitLab permits it. Protect the `production` environment in GitLab so only intended operators can start deployment and rollback jobs.
+
+The deployment host must have Docker Compose installed and network access to the self-hosted GitLab Container Registry. Each deployment logs in using the read-only deploy token. The directory identified by `DEPLOY_PATH` must contain:
+
+- `server/.env` with DownTune server settings
+- `.env` with `DOWNLOADS_PATH` and optional `APP_PORT`
+
+`deploy-production` copies `docker-compose.prod.yml`, pulls digest-pinned images, starts them with health checks, and verifies the proxied CSRF endpoint. Deployments are serialized through GitLab's `production` resource group.
+
+For rollback, set `ROLLBACK_CLIENT_IMAGE` and `ROLLBACK_SERVER_IMAGE` to previous digest-pinned registry references, then run the protected manual `rollback-production` job.
+
 ## Issues
 There are some current issues being investigated:
 

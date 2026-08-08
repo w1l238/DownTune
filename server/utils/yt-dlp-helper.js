@@ -12,6 +12,25 @@ export function resolveYtDlpPython(env = process.env, platform = process.platfor
 
 const PYTHON_BIN = resolveYtDlpPython();
 
+export function buildYtDlpChildEnv(env = process.env) {
+  const homeDir = env.HOME ?? env.USERPROFILE ?? '/root';
+  const venvBin = `${homeDir}/.local/share/downtune-venv/bin`;
+  const basePath = env.PATH || '/usr/bin:/usr/local/bin:/bin';
+  const childEnv = {
+    PATH: existsSync(venvBin) ? `${venvBin}:${basePath}` : basePath,
+    HOME: env.HOME ?? env.USERPROFILE ?? '/tmp',
+  };
+
+  for (const name of ['SSL_CERT_FILE', 'SSL_CERT_DIR', 'REQUESTS_CA_BUNDLE', 'CURL_CA_BUNDLE']) {
+    if (env[name]) childEnv[name] = env[name];
+  }
+  if (env.YT_DLP_CA_CERT) childEnv.YT_DLP_CA_CERT = env.YT_DLP_CA_CERT;
+  if (env.LANG) childEnv.LANG = env.LANG;
+  if (env.LC_ALL) childEnv.LC_ALL = env.LC_ALL;
+
+  return childEnv;
+}
+
 export const runYtDlp = (args) => {
   return new Promise((resolve, reject) => {
     const caArgs = process.env.YT_DLP_CA_CERT
@@ -20,21 +39,7 @@ export const runYtDlp = (args) => {
     const fullArgs = ['-m', 'yt_dlp', ...caArgs, ...args];
     if (process.env.NODE_ENV !== 'production') info(`[DEBUG] Executing: ${PYTHON_BIN} ${fullArgs.join(' ')}`);
 
-    const homeDir = process.env.HOME ?? process.env.USERPROFILE ?? '/root';
-    const venvBin = `${homeDir}/.local/share/downtune-venv/bin`;
-    const basePath = process.env.PATH || '/usr/bin:/usr/local/bin:/bin';
-    const childEnv = {
-      PATH: existsSync(venvBin) ? `${venvBin}:${basePath}` : basePath,
-      HOME: process.env.HOME ?? process.env.USERPROFILE ?? '/tmp',
-    };
-    for (const v of ['SSL_CERT_FILE', 'SSL_CERT_DIR', 'REQUESTS_CA_BUNDLE', 'CURL_CA_BUNDLE']) {
-      if (process.env[v]) childEnv[v] = process.env[v];
-    }
-    if (process.env.YT_DLP_CA_CERT) childEnv.YT_DLP_CA_CERT = process.env.YT_DLP_CA_CERT;
-    if (process.env.LANG) childEnv.LANG = process.env.LANG;
-    if (process.env.LC_ALL) childEnv.LC_ALL = process.env.LC_ALL;
-
-    const childProcess = spawn(PYTHON_BIN, fullArgs, { env: childEnv });
+    const childProcess = spawn(PYTHON_BIN, fullArgs, { env: buildYtDlpChildEnv() });
     let stdout = '';
     let stderr = '';
 

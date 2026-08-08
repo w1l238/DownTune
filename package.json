@@ -3,13 +3,18 @@
   "version": "1.1.0",
   "private": true,
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "scripts": {
     "install-all": "npm install --prefix client && npm install --prefix server",
-    "dev": "npx concurrently --names \"client,server\" --prefix-colors \"cyan,green\" \"npm run dev --prefix client\" \"NODE_ENV=development npm run start --prefix server\""
+    "dev": "npx concurrently --names \"client,server\" --prefix-colors \"cyan,green\" \"npm run dev --prefix client\" \"NODE_ENV=development npm run start --prefix server\"",
+    "lint": "npm run lint --prefix client && npm run lint --prefix server",
+    "build": "npm run build --prefix client",
+    "test": "npm run test --prefix server",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.0",
     "concurrently": "^10.0.1"
   }
 }

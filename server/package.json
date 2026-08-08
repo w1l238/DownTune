@@ -5,13 +5,15 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "node --test --experimental-test-coverage test/*.test.js"
+    "lint": "eslint .",
+    "test": "node --test --experimental-test-coverage test/*.test.js",
+    "test:ci": "node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=reports/junit.xml test/*.test.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "type": "module",
   "dependencies": {
@@ -22,5 +24,10 @@
     "music-metadata": "^11.12.3",
     "node-id3": "^0.2.6",
     "p-limit": "^7.3.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.4.1",
+    "globals": "17.6.0"
   }
 }

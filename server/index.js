@@ -22,7 +22,6 @@ const getBaseDownloadPath = () => {
   return process.env.DOWNLOAD_PATH || path.join(__dirname, '..', 'downloads');
 };
 
-import { spawn } from 'child_process';
 import { audioMetadataWriter } from './services/AudioMetadataWriter.js';
 import { fetchArtworkTags, lookupArtworkUrl } from './services/artworkService.js';
 import rateLimit from 'express-rate-limit';
@@ -404,7 +403,7 @@ app.get('/api/proxy', proxyLimiter, async (req, res) => {
 });
 
 app.post('/download-song', requireCsrf, downloadLimiter, async (req, res) => {
-  let { trackName, artistName, albumName, albumArtUrl, year, trackNumber, genre, isYoutube, isDeezer, url: videoUrl } = req.body;
+  let { trackName, artistName, albumName, albumArtUrl, year, trackNumber, genre, isYoutube, url: videoUrl } = req.body;
   info(`Download Task: "${trackName}" by "${artistName}" from album "${albumName}"`);
 
   if (!trackName || !artistName || !albumName) {

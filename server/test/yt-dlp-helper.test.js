@@ -1,8 +1,7 @@
-import { test, describe, before, after } from 'node:test';
+import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'fs';
-import { resolveYtDlpPython } from '../utils/yt-dlp-helper.js';
-import { spawn } from 'child_process';
+import { buildYtDlpChildEnv, resolveYtDlpPython } from '../utils/yt-dlp-helper.js';
 
 const VENV_PYTHON = `${process.env.HOME}/.local/share/downtune-venv/bin/python3`;
 
@@ -38,84 +37,27 @@ describe('resolveYtDlpPython', () => {
 });
 
 describe('childEnv construction', () => {
-  const SSL_VARS = ['SSL_CERT_FILE', 'SSL_CERT_DIR', 'REQUESTS_CA_BUNDLE', 'CURL_CA_BUNDLE', 'YT_DLP_CA_CERT'];
-
-  before(() => {
-    SSL_VARS.forEach(v => { process.env[v] = `/fake/${v}`; });
-    process.env.YT_DLP_CA_CERT = '/fake/ca.pem';
-  });
-
-  after(() => {
-    SSL_VARS.forEach(v => { delete process.env[v]; });
-  });
-
-  test('SSL vars are forwarded into childEnv', (t, done) => {
-    const sentinel = '__downtune_env_check__';
-    const child = spawn(process.execPath, [
-      '--input-type=module',
-      '--eval',
-      `
-import { existsSync } from 'fs';
-const homeDir = process.env.HOME ?? '/root';
-const venvBin = homeDir + '/.local/share/downtune-venv/bin';
-const basePath = process.env.PATH || '/usr/bin:/usr/local/bin:/bin';
-const childEnv = {
-  PATH: existsSync(venvBin) ? venvBin + ':' + basePath : basePath,
-  HOME: process.env.HOME ?? '/tmp',
-};
-for (const v of ['SSL_CERT_FILE','SSL_CERT_DIR','REQUESTS_CA_BUNDLE','CURL_CA_BUNDLE']) {
-  if (process.env[v]) childEnv[v] = process.env[v];
-}
-if (process.env.YT_DLP_CA_CERT) childEnv.YT_DLP_CA_CERT = process.env.YT_DLP_CA_CERT;
-console.log(JSON.stringify(childEnv));
-      `
-    ], {
-      env: {
-        ...process.env,
-        SSL_CERT_FILE: '/fake/SSL_CERT_FILE',
-        SSL_CERT_DIR: '/fake/SSL_CERT_DIR',
-        REQUESTS_CA_BUNDLE: '/fake/REQUESTS_CA_BUNDLE',
-        CURL_CA_BUNDLE: '/fake/CURL_CA_BUNDLE',
-        YT_DLP_CA_CERT: '/fake/ca.pem',
-      }
+  test('SSL vars are forwarded into childEnv', () => {
+    const env = buildYtDlpChildEnv({
+      HOME: '/home/testuser',
+      PATH: '/usr/bin',
+      SSL_CERT_FILE: '/fake/SSL_CERT_FILE',
+      SSL_CERT_DIR: '/fake/SSL_CERT_DIR',
+      REQUESTS_CA_BUNDLE: '/fake/REQUESTS_CA_BUNDLE',
+      CURL_CA_BUNDLE: '/fake/CURL_CA_BUNDLE',
+      YT_DLP_CA_CERT: '/fake/ca.pem',
     });
 
-    let out = '';
-    child.stdout.on('data', d => out += d);
-    child.on('close', () => {
-      const env = JSON.parse(out);
-      assert.equal(env.SSL_CERT_FILE, '/fake/SSL_CERT_FILE');
-      assert.equal(env.SSL_CERT_DIR, '/fake/SSL_CERT_DIR');
-      assert.equal(env.REQUESTS_CA_BUNDLE, '/fake/REQUESTS_CA_BUNDLE');
-      assert.equal(env.CURL_CA_BUNDLE, '/fake/CURL_CA_BUNDLE');
-      assert.equal(env.YT_DLP_CA_CERT, '/fake/ca.pem');
-      done();
-    });
+    assert.equal(env.SSL_CERT_FILE, '/fake/SSL_CERT_FILE');
+    assert.equal(env.SSL_CERT_DIR, '/fake/SSL_CERT_DIR');
+    assert.equal(env.REQUESTS_CA_BUNDLE, '/fake/REQUESTS_CA_BUNDLE');
+    assert.equal(env.CURL_CA_BUNDLE, '/fake/CURL_CA_BUNDLE');
+    assert.equal(env.YT_DLP_CA_CERT, '/fake/ca.pem');
   });
 
-  test('HOME in childEnv uses process.env.HOME, not /tmp', (t, done) => {
-    const child = spawn(process.execPath, [
-      '--input-type=module',
-      '--eval',
-      `
-import { existsSync } from 'fs';
-const homeDir = process.env.HOME ?? '/root';
-const venvBin = homeDir + '/.local/share/downtune-venv/bin';
-const basePath = '/usr/bin';
-const childEnv = {
-  PATH: existsSync(venvBin) ? venvBin + ':' + basePath : basePath,
-  HOME: process.env.HOME ?? '/tmp',
-};
-console.log(childEnv.HOME);
-      `
-    ], { env: { ...process.env, HOME: '/home/testuser' } });
-
-    let out = '';
-    child.stdout.on('data', d => out += d);
-    child.on('close', () => {
-      assert.equal(out.trim(), '/home/testuser');
-      done();
-    });
+  test('HOME in childEnv uses supplied HOME, not /tmp', () => {
+    const env = buildYtDlpChildEnv({ HOME: '/home/testuser', PATH: '/usr/bin' });
+    assert.equal(env.HOME, '/home/testuser');
   });
 
   test('--ca-cert flag is prepended when YT_DLP_CA_CERT is set', () => {
@@ -146,39 +88,12 @@ console.log(childEnv.HOME);
     if (savedEnv !== undefined) process.env.YT_DLP_CA_CERT = savedEnv;
   });
 
-  test('SSL vars absent from childEnv when not set in parent', (t, done) => {
-    const child = spawn(process.execPath, [
-      '--input-type=module',
-      '--eval',
-      `
-import { existsSync } from 'fs';
-const homeDir = process.env.HOME ?? '/root';
-const venvBin = homeDir + '/.local/share/downtune-venv/bin';
-const basePath = '/usr/bin';
-const childEnv = {
-  PATH: existsSync(venvBin) ? venvBin + ':' + basePath : basePath,
-  HOME: process.env.HOME ?? '/tmp',
-};
-for (const v of ['SSL_CERT_FILE','SSL_CERT_DIR','REQUESTS_CA_BUNDLE','CURL_CA_BUNDLE']) {
-  if (process.env[v]) childEnv[v] = process.env[v];
-}
-if (process.env.YT_DLP_CA_CERT) childEnv.YT_DLP_CA_CERT = process.env.YT_DLP_CA_CERT;
-console.log(JSON.stringify(childEnv));
-      `
-    ], {
-      env: { HOME: '/home/testuser', PATH: '/usr/bin' }
-    });
-
-    let out = '';
-    child.stdout.on('data', d => out += d);
-    child.on('close', () => {
-      const env = JSON.parse(out);
-      assert.equal(env.SSL_CERT_FILE, undefined);
-      assert.equal(env.SSL_CERT_DIR, undefined);
-      assert.equal(env.REQUESTS_CA_BUNDLE, undefined);
-      assert.equal(env.CURL_CA_BUNDLE, undefined);
-      assert.equal(env.YT_DLP_CA_CERT, undefined);
-      done();
-    });
+  test('SSL vars absent from childEnv when not supplied', () => {
+    const env = buildYtDlpChildEnv({ HOME: '/home/testuser', PATH: '/usr/bin' });
+    assert.equal(env.SSL_CERT_FILE, undefined);
+    assert.equal(env.SSL_CERT_DIR, undefined);
+    assert.equal(env.REQUESTS_CA_BUNDLE, undefined);
+    assert.equal(env.CURL_CA_BUNDLE, undefined);
+    assert.equal(env.YT_DLP_CA_CERT, undefined);
   });
 });

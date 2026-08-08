@@ -1,5 +1,6 @@
 .env
 downloads/
+node_modules/
 GEMINI.md
 Implementation-Plan.md
 WhatNEXT.md
@@ -18,3 +19,10 @@ dependabot-PRs
 # Runtime data
 server/favorites.json
 server/metadata_cache.json
+
+# Test and CI output
+.npm/
+.tmp/
+playwright-report/
+test-results/
+server/reports/

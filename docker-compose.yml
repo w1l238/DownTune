@@ -1,6 +1,7 @@
 services:
   server:
     container_name: DownTune-Backend
+    image: ${SERVER_IMAGE:-downtune-server:local}
     build: ./server
     restart: unless-stopped
     env_file:
@@ -19,6 +20,7 @@ services:
 
   client:
     container_name: DownTune-Frontend
+    image: ${CLIENT_IMAGE:-downtune-client:local}
     build: ./client
     restart: unless-stopped
     ports:
@@ -26,3 +28,9 @@ services:
     depends_on:
       server:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

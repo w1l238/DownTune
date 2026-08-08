@@ -1,14 +1,287 @@
-build:
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+stages:
+  - validate
+  - test
+  - image
+  - publish
+  - deploy
+  - diagnostics
+
+default:
   tags:
     - shared
-  image: docker:27
+  interruptible: true
+  timeout: 20 minutes
+  retry:
+    max: 1
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+
+variables:
+  npm_config_cache: "$CI_PROJECT_DIR/.npm"
+
+.node-job:
+  image: node:24.19.0-bookworm-slim
+  cache:
+    policy: pull-push
+    paths:
+      - .npm/
+
+.docker-job:
+  image: docker:27.5.1-cli
   services:
-    - docker:27-dind
+    - name: docker:27.5.1-dind
+      alias: docker
   variables:
     DOCKER_HOST: tcp://docker:2376
-    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_CERTDIR: /certs
     DOCKER_TLS_VERIFY: "1"
-    DOCKER_CERT_PATH: "/certs/client"
+    DOCKER_CERT_PATH: /certs/client
+    DOCKER_BUILDKIT: "1"
+  before_script:
+    - docker version
+    - docker compose version
+
+runner-info:
+  extends: .node-job
+  stage: validate
+  script:
+    - node --version
+    - npm --version
+    - uname -a
+    - |
+      printf 'Runner description: %s\nRunner tags: %s\nRunner arch: %s\n' \
+        "$CI_RUNNER_DESCRIPTION" "$CI_RUNNER_TAGS" "$CI_RUNNER_EXECUTABLE_ARCH"
+    - |
+      test -f /.dockerenv \
+        && echo 'Job environment: Docker container' \
+        || echo 'Job environment: non-Docker or compatible container'
+
+client-lint:
+  extends: .node-job
+  stage: validate
+  cache:
+    key:
+      files:
+        - client/package-lock.json
+    paths:
+      - .npm/
+  script:
+    - npm ci --prefix client
+    - npm run lint --prefix client
+
+server-lint:
+  extends: .node-job
+  stage: validate
+  cache:
+    key:
+      files:
+        - server/package-lock.json
+    paths:
+      - .npm/
+  script:
+    - npm ci --prefix server
+    - npm run lint --prefix server
+
+client-build:
+  extends: .node-job
+  stage: validate
+  cache:
+    key:
+      files:
+        - client/package-lock.json
+    paths:
+      - .npm/
+  script:
+    - npm ci --prefix client
+    - npm run build --prefix client
+  artifacts:
+    paths:
+      - client/dist/
+    expire_in: 1 week
+
+server-unit:
+  extends: .node-job
+  stage: test
+  cache:
+    key:
+      files:
+        - server/package-lock.json
+    paths:
+      - .npm/
+  before_script:
+    - apt-get update
+    - apt-get install --yes --no-install-recommends ffmpeg
+    - rm -rf /var/lib/apt/lists/*
+  script:
+    - npm ci --prefix server
+    - mkdir -p server/reports
+    - npm run test:ci --prefix server
+  coverage: '/all files\s+\|\s+([0-9.]+)/'
+  artifacts:
+    when: always
+    reports:
+      junit: server/reports/junit.xml
+    paths:
+      - server/reports/
+    expire_in: 1 week
+
+e2e:
+  stage: test
+  image: mcr.microsoft.com/playwright:v1.62.0-noble
+  cache:
+    key:
+      files:
+        - package-lock.json
+        - client/package-lock.json
+        - server/package-lock.json
+    paths:
+      - .npm/
+  needs:
+    - client-build
+  script:
+    - npm ci
+    - npm ci --prefix client
+    - npm ci --prefix server
+    - npm run test:e2e
+  artifacts:
+    when: always
+    reports:
+      junit: test-results/e2e-junit.xml
+    paths:
+      - playwright-report/
+      - test-results/
+    expire_in: 1 week
+
+container-build-smoke:
+  extends: .docker-job
+  stage: image
+  variables:
+    COMPOSE_PROJECT_NAME: "downtune-ci-$CI_PIPELINE_ID"
+    CLIENT_IMAGE: downtune-client:ci
+    SERVER_IMAGE: downtune-server:ci
+  script:
+    - docker build --pull --tag "$CLIENT_IMAGE" ./client
+    - docker build --pull --tag "$SERVER_IMAGE" ./server
+    - docker compose --file docker-compose.ci.yml up --detach --no-build --wait server client
+    - docker compose --file docker-compose.ci.yml --profile test run --rm smoke
+  after_script:
+    - docker compose --file docker-compose.ci.yml down --volumes --remove-orphans
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - client/**/*
+        - server/**/*
+        - docker-compose*.yml
+      when: manual
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: manual
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+    - when: never
+  allow_failure: true
+  timeout: 30 minutes
+
+publish-images:
+  extends: .docker-job
+  stage: publish
+  script:
+    - apk add --no-cache jq
+    - echo "$CI_JOB_TOKEN" | docker login --username gitlab-ci-token --password-stdin "$CI_REGISTRY"
+    - docker buildx create --use --name "downtune-$CI_JOB_ID"
+    - docker buildx inspect --bootstrap
+    - docker buildx build --pull --push --tag "$CI_REGISTRY_IMAGE/client:$CI_COMMIT_SHA" --metadata-file client-metadata.json ./client
+    - docker buildx build --pull --push --tag "$CI_REGISTRY_IMAGE/server:$CI_COMMIT_SHA" --metadata-file server-metadata.json ./server
+    - CLIENT_DIGEST="$(jq -er '."containerimage.digest"' client-metadata.json)"
+    - SERVER_DIGEST="$(jq -er '."containerimage.digest"' server-metadata.json)"
+    - printf 'CLIENT_IMAGE=%s/client@%s\nSERVER_IMAGE=%s/server@%s\n' "$CI_REGISTRY_IMAGE" "$CLIENT_DIGEST" "$CI_REGISTRY_IMAGE" "$SERVER_DIGEST" > build.env
+  after_script:
+    - docker logout "$CI_REGISTRY" || true
+  artifacts:
+    reports:
+      dotenv: build.env
+    paths:
+      - client-metadata.json
+      - server-metadata.json
+    expire_in: 4 weeks
+  rules:
+    - if: '$CI_COMMIT_REF_PROTECTED == "true" && ($CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_TAG)'
+      when: manual
+    - when: never
+  timeout: 45 minutes
+
+.production-ssh:
+  image: alpine:3.22.1
+  before_script:
+    - apk add --no-cache openssh-client
+    - test -n "$DEPLOY_HOST"
+    - test -n "$DEPLOY_USER"
+    - test -n "$DEPLOY_PATH"
+    - test -n "$REGISTRY_DEPLOY_USER"
+    - test -n "$REGISTRY_DEPLOY_PASSWORD"
+    - test -s "$SSH_PRIVATE_KEY"
+    - test -s "$SSH_KNOWN_HOSTS"
+    - install -d -m 700 ~/.ssh
+    - install -m 600 "$SSH_PRIVATE_KEY" ~/.ssh/id_ed25519
+    - install -m 600 "$SSH_KNOWN_HOSTS" ~/.ssh/known_hosts
+
+deploy-production:
+  extends: .production-ssh
+  stage: deploy
+  needs:
+    - job: publish-images
+      artifacts: true
+  resource_group: production
+  environment:
+    name: production
+    url: $PRODUCTION_URL
+  script:
+    - test -n "$CLIENT_IMAGE"
+    - test -n "$SERVER_IMAGE"
+    - ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH'"
+    - printf '%s' "$REGISTRY_DEPLOY_PASSWORD" | ssh "$DEPLOY_USER@$DEPLOY_HOST" "docker login --username '$REGISTRY_DEPLOY_USER' --password-stdin '$CI_REGISTRY'"
+    - scp docker-compose.prod.yml "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/docker-compose.prod.yml"
+    - ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$DEPLOY_PATH' && CLIENT_IMAGE='$CLIENT_IMAGE' SERVER_IMAGE='$SERVER_IMAGE' docker compose --file docker-compose.prod.yml pull && CLIENT_IMAGE='$CLIENT_IMAGE' SERVER_IMAGE='$SERVER_IMAGE' docker compose --file docker-compose.prod.yml up --detach --wait && CLIENT_IMAGE='$CLIENT_IMAGE' SERVER_IMAGE='$SERVER_IMAGE' docker compose --file docker-compose.prod.yml exec -T client wget --quiet --tries=1 --spider http://127.0.0.1/api/csrf-token"
+  rules:
+    - if: '$CI_COMMIT_REF_PROTECTED == "true" && ($CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_TAG)'
+      when: manual
+    - when: never
+  timeout: 15 minutes
+
+rollback-production:
+  extends: .production-ssh
+  stage: deploy
+  resource_group: production
+  environment:
+    name: production
+    url: $PRODUCTION_URL
+  script:
+    - test -n "$ROLLBACK_CLIENT_IMAGE"
+    - test -n "$ROLLBACK_SERVER_IMAGE"
+    - printf '%s' "$REGISTRY_DEPLOY_PASSWORD" | ssh "$DEPLOY_USER@$DEPLOY_HOST" "docker login --username '$REGISTRY_DEPLOY_USER' --password-stdin '$CI_REGISTRY'"
+    - ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$DEPLOY_PATH' && CLIENT_IMAGE='$ROLLBACK_CLIENT_IMAGE' SERVER_IMAGE='$ROLLBACK_SERVER_IMAGE' docker compose --file docker-compose.prod.yml pull && CLIENT_IMAGE='$ROLLBACK_CLIENT_IMAGE' SERVER_IMAGE='$ROLLBACK_SERVER_IMAGE' docker compose --file docker-compose.prod.yml up --detach --wait && CLIENT_IMAGE='$ROLLBACK_CLIENT_IMAGE' SERVER_IMAGE='$ROLLBACK_SERVER_IMAGE' docker compose --file docker-compose.prod.yml exec -T client wget --quiet --tries=1 --spider http://127.0.0.1/api/csrf-token"
+  rules:
+    - if: '$CI_COMMIT_REF_PROTECTED == "true" && ($CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_TAG)'
+      when: manual
+    - when: never
+  timeout: 15 minutes
+
+docker-runner-check:
+  extends: .docker-job
+  stage: diagnostics
   script:
     - docker info
-    - docker build -t test-image .
+    - docker run --rm hello-world
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+    - when: never
+  allow_failure: true
+  timeout: 10 minutes
