@@ -14,7 +14,6 @@
 /* Glass section card */
 .settings-section {
     background: var(--sd-glass-05);
-    backdrop-filter: blur(var(--sd-blur-lg));
     border: 1px solid var(--sd-glass-border-soft);
     border-radius: var(--sd-radius-lg);
     box-shadow: var(--sd-shadow-md);
@@ -72,7 +71,6 @@
     font-size: 0.9rem;
     font-family: inherit;
     width: 100%;
-    backdrop-filter: blur(var(--sd-blur-md));
     outline: 0;
     transition: all var(--sd-dur-fast) var(--sd-ease-glass);
 }
@@ -573,8 +571,6 @@
     gap: 1rem;
     padding: 0.85rem 1rem;
     background: var(--sd-glass-05);
-    backdrop-filter: blur(var(--sd-blur-lg));
-    -webkit-backdrop-filter: blur(var(--sd-blur-lg));
     border: 1px solid var(--sd-glass-border-soft);
     border-radius: var(--sd-radius-lg);
     box-shadow: var(--sd-shadow-md);

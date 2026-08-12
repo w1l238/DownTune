@@ -75,6 +75,7 @@ const Results = () => {
     const [historyLimit, setHistoryLimit] = useState(loadHistoryLimit);
     const [showHistoryPrefs, setShowHistoryPrefs] = useState(false);
     const [windowWidth, setWindowWidth] = useState(() => window.innerWidth);
+    const [searchError, setSearchError] = useState('');
 
     const fetchLibrary = async () => {
         try {
@@ -146,6 +147,7 @@ const Results = () => {
         const trimmed = (q || query).trim();
         if (!trimmed) return;
         const limit = localStorage.getItem('spotify_results_limit') || 20;
+        setSearchError('');
         try {
             const res = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(trimmed)}&limit=${limit}&type=all`);
             if (res.ok) {
@@ -163,9 +165,14 @@ const Results = () => {
                     if (prev === 'albums'  && data.albums.length  === 0) return 'songs';
                     return prev;
                 });
+            } else {
+                const data = await res.json().catch(() => ({}));
+                setAllResults(emptyAllResults());
+                setResults({ items: [], next: null, previous: null });
+                setSearchError(data.error || 'Search failed. Please try again.');
             }
         } catch {
-            // showNotification not available here; fail silently or use a toast if needed
+            setSearchError('Could not reach the server. Please try again.');
         }
     };
 
@@ -179,6 +186,7 @@ const Results = () => {
         setResults({ items: [], next: null, previous: null });
         setQuery('');
         setActiveTab('songs');
+        setSearchError('');
         sessionStorage.removeItem(SESSION_KEY);
         if (inputRef.current) inputRef.current.focus();
     };
@@ -210,6 +218,7 @@ const Results = () => {
 
     const hasResults = results.items.length > 0;
     const hasAnyResults = hasResults || allResults.artists.length > 0 || allResults.albums.length > 0;
+    const isDirectYoutubeResult = results.items.length === 1 && results.items[0].isDirectYoutube === true;
     const isMobile = windowWidth <= 768;
     const displayHistory = history.slice(0, isMobile ? 10 : historyLimit);
 
@@ -229,7 +238,7 @@ const Results = () => {
                     ref={inputRef}
                     value={query}
                     onChange={e => setQuery(e.target.value)}
-                    placeholder="Search for songs, artists, albums…"
+                    placeholder="Search music or paste a YouTube URL…"
                     autoComplete="off"
                 />
                 {(query || hasResults) && (
@@ -242,8 +251,10 @@ const Results = () => {
                 </button>
             </form>
 
+            {searchError && <p className="results-search-error" role="alert">{searchError}</p>}
+
             {/* Tab bar — only when any results exist */}
-            {hasAnyResults && (
+            {hasAnyResults && !isDirectYoutubeResult && (
                 <div className="results-tabs">
                     {TABS.map(tab => (
                         <button
@@ -417,7 +428,7 @@ const Results = () => {
             )}
 
             {/* Pagination — songs tab only */}
-            {activeTab === 'songs' && hasResults && (
+            {activeTab === 'songs' && hasResults && (results.previous || results.next) && (
                 <div className="results-pagination">
                     <button onClick={() => fetchPage(results.previous)} disabled={!results.previous}>
                         Previous
@@ -432,7 +443,7 @@ const Results = () => {
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 onSubmit={handleSubmit}
-                placeholder="Search songs, artists, albums…"
+                placeholder="Search music or paste a YouTube URL…"
                 buttonLabel="Search"
             />
         </div>

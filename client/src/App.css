@@ -20,7 +20,6 @@
 .main {
     grid-row: 1 / 2;
     background: var(--sd-glass-05);
-    backdrop-filter: blur(var(--sd-blur-lg));
     border: 1px solid var(--sd-glass-border-soft);
     border-radius: var(--sd-radius-xl);
     box-shadow: var(--sd-shadow-lg);
@@ -36,7 +35,14 @@
     min-height: 0;
     overflow-y: auto;
     padding: 1.2rem 1.4rem 1.6rem;
-    animation: fadeInUp 0.35s ease forwards;
+    animation: canvasFadeInUp 0.35s ease;
+}
+
+/* Do not retain the finished transform: a persistent transformed layer can
+   make Chromium downsample text when the canvas spans an ultrawide viewport. */
+@keyframes canvasFadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
 .canvas::-webkit-scrollbar { width: 8px; }

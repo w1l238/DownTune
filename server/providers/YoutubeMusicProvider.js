@@ -2,10 +2,50 @@ import { SongProvider } from './SongProvider.js';
 import { runYtDlp } from '../utils/yt-dlp-helper.js';
 import { info, error } from '../logger.js';
 import { metadataService } from '../services/MetadataService.js';
+import { cleanYoutubeArtist, cleanYoutubeTitle, resolveCanonicalYoutube } from '../services/YoutubeMetadataService.js';
+
+export function normalizeYoutubeVideo(videoInfo, sourceUrl) {
+  const artist = videoInfo.artist || videoInfo.uploader || videoInfo.channel || 'Unknown Artist';
+  const thumbnails = Array.isArray(videoInfo.thumbnails)
+    ? videoInfo.thumbnails.slice(-2).map(thumbnail => ({
+        url: thumbnail.url,
+        height: thumbnail.height,
+        width: thumbnail.width,
+      })).filter(thumbnail => thumbnail.url)
+    : [];
+
+  return {
+    id: `youtube-${videoInfo.id || Buffer.from(sourceUrl).toString('base64url')}`,
+    name: videoInfo.track || videoInfo.title || 'Untitled YouTube video',
+    artists: [{ name: artist.replace(/\s*-\s*Topic$/i, '').replace(/\s*VEVO$/i, '').trim() }],
+    album: {
+      name: videoInfo.album || 'YouTube Music',
+      images: thumbnails,
+      release_date: videoInfo.release_date || videoInfo.upload_date || undefined,
+    },
+    trackNumber: videoInfo.track_number || undefined,
+    genre: videoInfo.genre || undefined,
+    duration: videoInfo.duration || undefined,
+    isYoutube: true,
+    isDirectYoutube: true,
+    url: sourceUrl,
+  };
+}
 
 export class YoutubeMusicProvider extends SongProvider {
+  constructor(runYtDlpFn = runYtDlp, fetchFn = globalThis.fetch) {
+    super();
+    this.runYtDlp = runYtDlpFn;
+    this.fetch = fetchFn;
+  }
+
   getName() {
     return 'YouTube Music';
+  }
+
+  async resolveUrl(url) {
+    info(`Resolving direct YouTube URL: ${url}`);
+    return resolveCanonicalYoutube(url, { runYtDlpFn: this.runYtDlp, fetchFn: this.fetch });
   }
 
   async search(query, limit = 20) {
@@ -110,7 +150,7 @@ export class YoutubeMusicProvider extends SongProvider {
    * @param {string} artist 
    */
   cleanArtist(artist) {
-    return artist.replace(/\s*-\s*Topic$/i, '').replace(/\s*VEVO$/i, '').trim();
+    return cleanYoutubeArtist(artist);
   }
 
   /**
@@ -145,6 +185,6 @@ export class YoutubeMusicProvider extends SongProvider {
         clean = clean.replace(reg, '');
     });
 
-    return clean.trim();
+    return cleanYoutubeTitle(clean);
   }
 }

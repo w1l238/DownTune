@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import path from 'node:path';
 
-const port = 3000;
+const port = Number(process.env.PLAYWRIGHT_PORT || 3000);
 const baseURL = `http://127.0.0.1:${port}`;
 const downloadPath = path.resolve('.tmp/e2e-downloads');
 

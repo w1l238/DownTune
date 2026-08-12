@@ -3,12 +3,13 @@ import { createPortal } from 'react-dom';
 import { FiChevronDown, FiCheck } from 'react-icons/fi';
 import './css/CustomDropdown.css';
 
-const CustomDropdown = ({ options, value, onChange, placeholder = 'Select an option' }) => {
+const CustomDropdown = ({ options, value, onChange, placeholder = 'Select an option', disabled = false }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [listPos, setListPos] = useState(null);
     const triggerRef = useRef(null);
 
     const open = () => {
+        if (disabled) return;
         const rect = triggerRef.current.getBoundingClientRect();
         setListPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
         setIsOpen(true);
@@ -30,14 +31,15 @@ const CustomDropdown = ({ options, value, onChange, placeholder = 'Select an opt
         <div className="custom-dropdown-container">
             <div
                 ref={triggerRef}
-                className={`dropdown-header ${isOpen ? 'is-open' : ''}`}
+                className={`dropdown-header ${isOpen ? 'is-open' : ''}${disabled ? ' disabled' : ''}`}
                 onClick={isOpen ? close : open}
+                aria-disabled={disabled}
             >
                 <span>{selectedOption ? selectedOption.name : placeholder}</span>
                 <FiChevronDown className="dropdown-arrow" />
             </div>
 
-            {isOpen && listPos && createPortal(
+            {!disabled && isOpen && listPos && createPortal(
                 <>
                     <div className="portal-overlay" onClick={close} />
                     <div

@@ -67,7 +67,6 @@ button {
   font-weight: var(--sd-fw-medium);
   font-family: inherit;
   background-color: var(--sd-glass-10);
-  backdrop-filter: blur(var(--sd-blur-md));
   box-shadow: var(--sd-shadow-md);
   color: white;
   cursor: pointer;
@@ -117,7 +116,7 @@ button:disabled {
   animation: fadeInUp var(--fade-dur, 0.5s) ease forwards;
 }
 
-/* Dim overlay for background images — sits between body bg and shell content */
+/* Dim overlay for static colors and background images — sits behind shell content */
 body::before {
   content: '';
   position: fixed;

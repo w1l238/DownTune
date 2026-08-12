@@ -112,7 +112,7 @@ const Home = () => {
                     <input
                         value={query}
                         onChange={e => setQuery(e.target.value)}
-                        placeholder="Search for songs, artists, albums…"
+                        placeholder="Search music or paste a YouTube URL…"
                         autoComplete="off"
                     />
                     {query && (
@@ -240,7 +240,7 @@ const Home = () => {
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 onSubmit={handleSearch}
-                placeholder="Search songs, artists, albums…"
+                placeholder="Search music or paste a YouTube URL…"
                 buttonLabel="Search"
             />
         </div>

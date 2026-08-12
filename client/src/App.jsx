@@ -2,7 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import { useEffect, useState, useRef, lazy, Suspense } from 'react';
 import { DownloadProvider, useDownloads } from './contexts/DownloadContext';
 import { LibraryProvider } from './contexts/LibraryContext';
-import { applyAccent, applySpeed, applyDensity } from './utils/appearance';
+import { applyAccent, applySpeed, applyDensity, applyBackground, DEFAULT_BACKGROUND } from './utils/appearance';
 import Sidebar from './components/Sidebar';
 import QueueDock from './components/QueueDock';
 import Popup from './components/Popup';
@@ -50,19 +50,11 @@ function Shell() {
 
     useEffect(() => {
         const bgImage = localStorage.getItem('app_bg_image');
-        const bgGradient = localStorage.getItem('app_background');
+        const background = localStorage.getItem('app_background') || DEFAULT_BACKGROUND;
         const bgDim = localStorage.getItem('app_bg_dim');
         const blurBase = parseFloat(localStorage.getItem('app_blur_base') || '10');
 
-        if (bgImage) {
-            document.body.style.background = `url(${bgImage}) center / cover fixed`;
-            document.body.style.animation = 'none';
-        } else if (bgGradient) {
-            document.documentElement.style.setProperty('--app-background', bgGradient);
-        }
-        if (bgDim) {
-            document.body.style.setProperty('--bg-dim', bgDim);
-        }
+        applyBackground({ background, imageUrl: bgImage || '', dim: parseFloat(bgDim || '0') });
 
         const r = document.documentElement.style;
         r.setProperty('--sd-blur-sm', `${blurBase * 0.5}px`);

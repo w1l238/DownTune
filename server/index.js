@@ -47,7 +47,9 @@ import { SpotifyProvider } from './providers/SpotifyProvider.js';
 import { YoutubeMusicProvider } from './providers/YoutubeMusicProvider.js';
 import { DeezerProvider } from './providers/DeezerProvider.js';
 import { metadataService } from './services/MetadataService.js';
+import { resolveCanonicalYoutube } from './services/YoutubeMetadataService.js';
 import { lyricsService } from './services/LyricsService.js';
+import { isValidYouTubeUrl, looksLikeHttpsUrl } from './utils/url-validator.js';
 
 const app = express();
 const port = parseInt(process.env.PORT || '3001', 10);
@@ -210,7 +212,7 @@ app.get('/api/csrf-token', (req, res) => {
 
 // Generic Search Endpoint
 app.get('/api/search', searchLimiter, async (req, res) => {
-  const query = req.query.q;
+  const query = String(req.query.q || '').trim();
   const limit = parseInt(req.query.limit) || 10;
   const type  = req.query.type || 'tracks';
 
@@ -219,6 +221,23 @@ app.get('/api/search', searchLimiter, async (req, res) => {
   }
 
   try {
+    if (looksLikeHttpsUrl(query)) {
+      if (!isValidYouTubeUrl(query)) {
+        return res.status(400).json({ error: 'HTTPS URLs must be valid YouTube links.' });
+      }
+
+      try {
+        const track = await new YoutubeMusicProvider().resolveUrl(query);
+        const tracks = { items: [track], next: null, previous: null };
+        return type === 'all'
+          ? res.json({ tracks, artists: [], albums: [] })
+          : res.json(tracks);
+      } catch (err) {
+        warning(`Direct YouTube URL could not be resolved: ${err.message}`);
+        return res.status(422).json({ error: 'The YouTube link could not be resolved to a downloadable video.' });
+      }
+    }
+
     const provider = getSearchProvider();
     if (type === 'all' && typeof provider.searchAll === 'function') {
       const results = await provider.searchAll(query, limit);
@@ -406,7 +425,11 @@ app.post('/download-song', requireCsrf, downloadLimiter, async (req, res) => {
   let { trackName, artistName, albumName, albumArtUrl, year, trackNumber, genre, isYoutube, url: videoUrl } = req.body;
   info(`Download Task: "${trackName}" by "${artistName}" from album "${albumName}"`);
 
-  if (!trackName || !artistName || !albumName) {
+  if (isYoutube && (!videoUrl || !isValidYouTubeUrl(videoUrl))) {
+    return res.status(400).json({ error: 'A valid HTTPS YouTube URL is required for direct downloads.' });
+  }
+
+  if (!isYoutube && (!trackName || !artistName || !albumName)) {
     return res.status(400).json({ error: 'Track name, artist name, and album name are required.' });
   }
 
@@ -416,31 +439,15 @@ app.post('/download-song', requireCsrf, downloadLimiter, async (req, res) => {
   try {
     if (isYoutube && videoUrl) {
       info(`Direct Download via YouTube URL: ${videoUrl}`);
-      // Fetch full metadata if it's YouTube and we have a placeholder album
-      if (albumName === 'YouTube Music') {
-          try {
-              const infoJson = await runYtDlp([videoUrl, '--dump-json', '--skip-download']);
-              videoInfo = JSON.parse(infoJson);
-              if (videoInfo) {
-                  trackName = videoInfo.track || trackName;
-                  artistName = videoInfo.artist || artistName;
-                  trackNumber = videoInfo.track_number || trackNumber;
-                  if (videoInfo.album) albumName = videoInfo.album;
-                  else if (videoInfo.description && videoInfo.description.includes('Provided to YouTube by')) {
-                      const descLines = videoInfo.description.split('\n').map(l => l.trim()).filter(l => l !== '');
-                      if (descLines.length >= 3 && descLines[1].includes(' \u00b7 ')) {
-                          const parts = descLines[1].split(' \u00b7 ');
-                          trackName = parts[0];
-                          artistName = parts[1];
-                          albumName = descLines[2];
-                      }
-                  }
-                  year = videoInfo.upload_date ? videoInfo.upload_date.substring(0, 4) : year;
-              }
-          } catch (e) {
-              warning(`Failed to fetch full metadata for YouTube URL: ${e.message}`);
-          }
-      }
+      const canonical = await resolveCanonicalYoutube(videoUrl);
+      trackName = canonical.name;
+      artistName = canonical.artists.map(artist => artist.name).join(', ');
+      albumName = canonical.album.name;
+      albumArtUrl = canonical.album.images[0]?.url;
+      year = canonical.album.release_date?.substring(0, 4);
+      trackNumber = canonical.trackNumber;
+      genre = canonical.genre;
+      videoInfo = canonical;
     } else {
       // For Spotify or Deezer, we need to find the song on YouTube
       const searchQuery = `${trackName} ${artistName}`;
@@ -456,9 +463,14 @@ app.post('/download-song', requireCsrf, downloadLimiter, async (req, res) => {
       videoUrl = videoInfo.webpage_url || videoInfo.url;
     }
 
-    // Final enrichment fallback if album is generic or other info is missing
+    if (!trackName || !artistName || !albumName) {
+      return res.status(422).json({ error: 'The YouTube link did not contain enough music metadata.' });
+    }
+
+    // Final enrichment fallback for non-direct downloads. Direct YouTube metadata
+    // has already passed through the shared canonical resolver above.
     let releaseDate = year;
-    if (albumName === 'YouTube Music' || !year || !trackNumber || !genre) {
+    if (!isYoutube && (albumName === 'YouTube Music' || !year || !trackNumber || !genre)) {
         const enriched = await metadataService.enrich(artistName, trackName);
         if (albumName === 'YouTube Music' && enriched.album !== 'YouTube Music') {
             albumName = enriched.album;

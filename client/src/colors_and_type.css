@@ -69,7 +69,7 @@
     --sd-scrim-strong: rgba(0, 0, 0, 0.7);
     --sd-modal-bg:     rgba(42, 42, 42, 0.9);
 
-    /* ----- Background gradients (theme presets from Settings.jsx) ----- */
+    /* ----- Background gradients (static and gradient presets are defined in appearance.js) ----- */
     --sd-bg-ocean-default: linear-gradient(-45deg, #0350a2, #23a6d5, #23d5ab, #0350a2);
     --sd-bg-spotify-green: linear-gradient(-45deg, #1db954, #1ed760, #1db954, #191414);
     --sd-bg-deep-purple:   linear-gradient(-45deg, #2e0249, #570a57, #a91079, #2e0249);

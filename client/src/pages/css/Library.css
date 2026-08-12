@@ -19,7 +19,6 @@
     font-size: 0.9rem;
     font-weight: var(--sd-fw-medium);
     cursor: pointer;
-    backdrop-filter: blur(var(--sd-blur-md));
     transition: all var(--sd-dur-fast) var(--sd-ease-glass);
 }
 
@@ -87,7 +86,6 @@
     background-color: var(--sd-glass-10);
     padding: 1rem 1.5rem;
     border-radius: var(--sd-radius-xl);
-    backdrop-filter: blur(var(--sd-blur-md));
     border: 1px solid var(--sd-glass-border);
     box-shadow: var(--sd-shadow-md);
     position: sticky;
@@ -163,7 +161,6 @@
     display: flex;
     align-items: center;
     transition: background-color var(--sd-dur-fast) var(--sd-ease-glass), opacity var(--sd-dur-base) var(--sd-ease-glass), transform var(--sd-dur-base) var(--sd-ease-glass), max-width var(--sd-dur-slow) var(--sd-ease-snap), padding var(--sd-dur-slow) var(--sd-ease-snap), margin var(--sd-dur-slow) var(--sd-ease-snap), border-color var(--sd-dur-base) var(--sd-ease-glass);
-    backdrop-filter: blur(5px);
     box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
     max-width: 500px;
     overflow: hidden;
@@ -201,7 +198,6 @@
     padding: 0.6rem 1.2rem;
     border-radius: var(--sd-radius-lg);
     cursor: pointer;
-    backdrop-filter: blur(5px);
     box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
 }
 
@@ -313,7 +309,6 @@
     text-align: center;
     transition: all var(--sd-dur-base) var(--sd-ease-glass);
     cursor: pointer;
-    backdrop-filter: blur(var(--sd-blur-sm));
     box-shadow: var(--sd-shadow-md);
 }
 
@@ -375,7 +370,6 @@
     background-color: rgba(255, 255, 255, 0.05);
     padding: 2rem;
     border-radius: var(--sd-radius-xl);
-    backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
 }
@@ -458,7 +452,6 @@
     font-weight: var(--sd-fw-semibold);
     cursor: pointer;
     transition: all var(--sd-dur-fast) var(--sd-ease-glass);
-    backdrop-filter: blur(var(--sd-blur-sm));
 }
 
 .hero-action-btn:hover {
@@ -689,7 +682,6 @@
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(5px);
     color: white;
     cursor: pointer;
     display: flex;
@@ -818,7 +810,6 @@
     right: 0;
     bottom: 0;
     background-color: var(--sd-glass-05);
-    backdrop-filter: blur(var(--sd-blur-md));
     border-radius: var(--sd-radius-lg);
     z-index: -1;
     transition: background-color var(--sd-dur-fast) var(--sd-ease-glass);
@@ -1116,7 +1107,6 @@
 .delete-btn {
     padding: 0.5rem 1rem;
     background-color: rgba(255, 49, 49, 0.8); /* Punchier red */
-    backdrop-filter: blur(5px);
     border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 1rem;
     color: white;
@@ -1137,7 +1127,6 @@
 .edit-btn {
     padding: 0.5rem 1rem;
     background-color: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(5px);
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 1rem;
     color: white;
@@ -1220,7 +1209,6 @@
     width: fit-content;
     margin-bottom: 1rem;
     transition: all var(--sd-dur-fast) var(--sd-ease-glass);
-    backdrop-filter: blur(var(--sd-blur-md));
     box-shadow: var(--sd-shadow-sm);
     transform: none !important;
 }
@@ -1731,7 +1719,6 @@
 
         /* Lift glass to the element itself — matches Results track-row quality */
         background: var(--sd-glass-10);
-        backdrop-filter: blur(var(--sd-blur-sm));
         border-color: var(--sd-glass-border-soft);
         border-radius: var(--sd-radius-xl);
         box-shadow: var(--sd-shadow-sm);
@@ -1745,7 +1732,6 @@
     /* Selection mode: ::before is hidden on mobile, so apply accent tint to the element itself */
     .selection-mode .song-row.selected {
         background: var(--tf-accent-soft) !important;
-        backdrop-filter: blur(var(--sd-blur-sm));
     }
 
     .song-row > div:first-child {

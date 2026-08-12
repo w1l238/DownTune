@@ -20,7 +20,6 @@
     background-color: var(--sd-glass-10);
     padding: 1rem 1.5rem;
     border-radius: var(--sd-radius-xl);
-    backdrop-filter: blur(var(--sd-blur-md));
     border: 1px solid var(--sd-glass-border);
     box-shadow: var(--sd-shadow-md);
     position: sticky;
@@ -48,7 +47,6 @@
     color: white;
     display: flex;
     align-items: center;
-    backdrop-filter: blur(5px);
     transition: background-color var(--sd-dur-fast) var(--sd-ease-glass);
 }
 
@@ -132,7 +130,6 @@
     border: 1px solid var(--sd-glass-border-soft);
     border-radius: var(--sd-radius-lg);
     padding: 0.85rem;
-    backdrop-filter: blur(var(--sd-blur-sm));
     box-shadow: var(--sd-shadow-md);
     display: flex;
     flex-direction: column;

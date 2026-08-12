@@ -163,20 +163,12 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
         }
     }, [location]);
 
-    const handleSearch = async (e) => {
+    const handleSearch = (e) => {
         e.preventDefault();
-        if (!query.trim()) return;
-        const limit = localStorage.getItem('spotify_results_limit') || 20;
-        try {
-            const res = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(query)}&limit=${limit}`);
-            if (res.ok) {
-                const data = await res.json();
-                navigate('/results', { state: { results: data, query, fromSidebar: true } });
-                if (inputRef.current) inputRef.current.blur();
-            }
-        } catch {
-            // handled in toast on the results page
-        }
+        const trimmed = query.trim();
+        if (!trimmed) return;
+        navigate('/results', { state: { query: trimmed, fromSidebar: true } });
+        if (inputRef.current) inputRef.current.blur();
     };
 
     const isOn = (path) => location.pathname === path;
@@ -239,7 +231,7 @@ const Sidebar = ({ collapsed, onToggleCollapse }) => {
                     ref={inputRef}
                     value={query}
                     onChange={e => setQuery(e.target.value)}
-                    placeholder="Search…"
+                    placeholder="Search or paste YouTube URL…"
                 />
             </form>
 

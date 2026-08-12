@@ -30,3 +30,30 @@ export function isSafeArtworkUrl(urlStr) {
   if (LOCAL_TLD.test(hostname)) return false;
   return true;
 }
+
+const YOUTUBE_HOSTS = new Set([
+  'youtube.com',
+  'youtu.be',
+  'youtube-nocookie.com',
+]);
+
+/**
+ * Returns true only for credential-free HTTPS URLs on YouTube-owned hosts.
+ * yt-dlp performs the final check that the URL resolves to a downloadable video.
+ */
+export function isValidYouTubeUrl(urlStr) {
+  if (!urlStr) return false;
+  try {
+    const parsed = new URL(urlStr);
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password) return false;
+    if (parsed.port && parsed.port !== '443') return false;
+    const hostname = parsed.hostname.toLowerCase().replace(/\.$/, '');
+    return [...YOUTUBE_HOSTS].some(host => hostname === host || hostname.endsWith(`.${host}`));
+  } catch {
+    return false;
+  }
+}
+
+export function looksLikeHttpsUrl(value) {
+  return /^https:\/\//i.test(String(value || '').trim());
+}

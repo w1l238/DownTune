@@ -5,7 +5,17 @@ import CustomDropdown from '../components/CustomDropdown';
 import { API_BASE_URL } from '../config';
 import { apiFetch } from '../utils/apiClient';
 import { useDownloads } from '../contexts/DownloadContext';
-import { ACCENT_PRESETS, SPEED_OPTIONS, applyAccent, applySpeed, applyDensity } from '../utils/appearance';
+import {
+    ACCENT_PRESETS,
+    BACKGROUND_PRESETS,
+    DEFAULT_BACKGROUND,
+    SPEED_OPTIONS,
+    applyAccent,
+    applyBackground,
+    applySpeed,
+    applyDensity,
+    getBackgroundKind,
+} from '../utils/appearance';
 
 function ChoicePills({ groupId, options, value, onChange, pillGroupClass }) {
     const selected = options.find(o => o.id === value);
@@ -58,9 +68,8 @@ const Settings = () => {
     const [searchProvider, setSearchProvider] = useState('spotify');
     const [autoScan, setAutoScan] = useState(() => localStorage.getItem('auto_scan_library') === 'true');
     const [autoRefreshLibrary, setAutoRefreshLibrary] = useState(() => localStorage.getItem('auto_refresh_library') !== 'false');
-    const [background, setBackground] = useState(() => localStorage.getItem('app_background') || 'linear-gradient(-45deg, #0350a2, #23a6d5, #23d5ab, #0350a2)');
+    const [background, setBackground] = useState(() => localStorage.getItem('app_background') || DEFAULT_BACKGROUND);
     const [bgImageUrl, setBgImageUrl] = useState(() => localStorage.getItem('app_bg_image') || '');
-    const [appliedBgImage, setAppliedBgImage] = useState(() => localStorage.getItem('app_bg_image') || '');
     const [bgDim, setBgDim] = useState(() => parseFloat(localStorage.getItem('app_bg_dim') || '0'));
     const [albumArtStyle, setAlbumArtStyle] = useState(() => localStorage.getItem('album_art_style') || 'background');
     const [blurBase, setBlurBase] = useState(() => parseFloat(localStorage.getItem('app_blur_base') || '10'));
@@ -110,20 +119,6 @@ const Settings = () => {
         ...overrides,
     });
 
-    const backgrounds = [
-        { name: 'Ocean Default', value: 'linear-gradient(-45deg, #0350a2, #23a6d5, #23d5ab, #0350a2)' },
-        { name: 'Spotify Green', value: 'linear-gradient(-45deg, #1db954, #1ed760, #1db954, #191414)' },
-        { name: 'Deep Purple', value: 'linear-gradient(-45deg, #2e0249, #570a57, #a91079, #2e0249)' },
-        { name: 'Midnight Blue', value: 'linear-gradient(-45deg, #0f0c29, #302b63, #24243e, #0f0c29)' },
-        { name: 'Ocean Wave', value: 'linear-gradient(-45deg, #2193b0, #6dd5ed, #2193b0, #6dd5ed)' },
-        { name: 'Forest Green', value: 'linear-gradient(-45deg, #11998e, #38ef7d, #11998e, #38ef7d)' },
-        { name: 'Cosmic Neon', value: 'linear-gradient(-45deg, #833ab4, #fd1d1d, #fcb045, #833ab4)' },
-        { name: 'Lava Flow', value: 'linear-gradient(-45deg, #b22222, #ff0000, #800000, #b22222)' },
-        { name: 'Sunset Vibes', value: 'linear-gradient(-45deg, #ff512f, #dd2476, #ff512f, #dd2476)' },
-        { name: 'Midnight City', value: 'linear-gradient(-45deg, #232526, #414345, #232526, #414345)' },
-        { name: 'Cyberpunk', value: 'linear-gradient(-45deg, #ff00ff, #00ffff, #ff00ff, #00ffff)' },
-    ];
-
     useEffect(() => {
         fetch(`${API_BASE_URL}/config`)
             .then(res => res.json())
@@ -162,22 +157,10 @@ const Settings = () => {
         r.setProperty('--sd-blur-xl', `${base * 2}px`);
     };
 
-    const applyBackgroundPreview = (imageUrl, gradient, dimness) => {
-        if (imageUrl) {
-            document.body.style.background = `url(${imageUrl}) center / cover fixed`;
-            document.body.style.animation = 'none';
-            document.body.style.setProperty('--bg-dim', dimness);
-        } else {
-            document.body.style.background = '';
-            document.body.style.animation = '';
-            document.documentElement.style.setProperty('--app-background', gradient);
-            document.body.style.setProperty('--bg-dim', '0');
-        }
-    };
-
     const currentSettings = createSettingsSnapshot();
     const hasUnsavedChanges = !!savedSettings && JSON.stringify(currentSettings) !== JSON.stringify(savedSettings);
     const selectedAudioFormatLabel = audioFormats.find(format => format.id === audioFormat)?.label || audioFormat.toUpperCase();
+    const canDimBackground = !!bgImageUrl.trim() || getBackgroundKind(background) === 'solid';
     const providerHelperText = searchProvider === 'spotify'
         ? 'Uses Spotify search and requires Spotify API credentials below.'
         : 'Uses Deezer search. No Spotify API credentials required.';
@@ -196,8 +179,7 @@ const Settings = () => {
         setAutoRefreshLibrary(savedSettings.autoRefreshLibrary);
         setBackground(savedSettings.background);
         setBgImageUrl(savedSettings.bgImageUrl);
-        setAppliedBgImage(savedSettings.bgImageUrl);
-        setBgDim(savedSettings.bgImageUrl ? savedSettings.bgDim : 0);
+        setBgDim(savedSettings.bgDim);
         setAlbumArtStyle(savedSettings.albumArtStyle);
         setBlurBase(savedSettings.blurBase);
         setAccent(savedSettings.accent);
@@ -210,7 +192,11 @@ const Settings = () => {
         applySpeed(savedSettings.animSpeed);
         applyDensity(savedSettings.density);
         applyBlur(savedSettings.blurBase);
-        applyBackgroundPreview(savedSettings.bgImageUrl, savedSettings.background, savedSettings.bgDim);
+        applyBackground({
+            imageUrl: savedSettings.bgImageUrl,
+            background: savedSettings.background,
+            dim: savedSettings.bgDim,
+        });
     };
 
     const handleSave = async () => {
@@ -220,7 +206,7 @@ const Settings = () => {
         }
         setSaving(true);
         const imageUrl = bgImageUrl.trim();
-        const savedBgDim = imageUrl ? bgDim : 0;
+        const savedBgDim = bgDim;
 
         try {
             localStorage.setItem('spotify_results_limit', limit);
@@ -238,18 +224,7 @@ const Settings = () => {
             localStorage.setItem('download_album_mode', albumDownloadMode);
         } catch { /* storage quota exceeded — continue with save */ }
 
-        setAppliedBgImage(imageUrl);
-        if (imageUrl) {
-            document.body.style.background = `url(${imageUrl}) center / cover fixed`;
-            document.body.style.animation = 'none';
-            document.body.style.setProperty('--bg-dim', bgDim);
-        } else {
-            document.body.style.background = '';
-            document.body.style.animation = '';
-            document.documentElement.style.setProperty('--app-background', background);
-            document.body.style.setProperty('--bg-dim', '0');
-            setBgDim(0);
-        }
+        applyBackground({ imageUrl, background, dim: savedBgDim });
 
         try {
             // Send blank clientSecret to signal "keep existing"; server preserves it
@@ -288,15 +263,17 @@ const Settings = () => {
                     <p className="section-summary">{accent} accent · {density} density · {animSpeed} motion</p>
                 </div>
                 <div className={`field${bgImageUrl ? ' field-disabled' : ''}`}>
-                    <label>Background Gradient</label>
+                    <label>Background</label>
                     <CustomDropdown
-                        options={backgrounds}
+                        options={BACKGROUND_PRESETS}
                         value={background}
-                        onChange={setBackground}
-                        onToggle={() => {}}
+                        onChange={value => {
+                            setBackground(value);
+                            applyBackground({ background: value, dim: bgDim });
+                        }}
                         disabled={!!bgImageUrl}
                     />
-                    <p className="field-desc">Choose a gradient theme. Overridden by image URL if set.</p>
+                    <p className="field-desc">Choose an animated gradient or static color. Overridden by image URL if set.</p>
                 </div>
                 <div className="field">
                     <label>Background Image URL</label>
@@ -342,7 +319,7 @@ const Settings = () => {
                     <p className="field-desc">How album artwork is displayed on the mobile album screen.</p>
                 </div>
 
-                <div className={`field${!appliedBgImage ? ' field-disabled' : ''}`}>
+                <div className={`field${!canDimBackground ? ' field-disabled' : ''}`}>
                     <label>Background Dimness</label>
                     <div className="dim-slider-row">
                         <input
@@ -352,18 +329,18 @@ const Settings = () => {
                             max="0.85"
                             step="0.01"
                             value={bgDim}
-                            disabled={!appliedBgImage}
+                            disabled={!canDimBackground}
                             style={{ '--fill': `${Math.round((bgDim / 0.85) * 100)}%` }}
                             onChange={e => {
                                 const v = parseFloat(e.target.value);
                                 e.target.style.setProperty('--fill', `${Math.round((v / 0.85) * 100)}%`);
                                 setBgDim(v);
-                                document.body.style.setProperty('--bg-dim', v);
+                                document.body.style.setProperty('--bg-dim', canDimBackground ? v : '0');
                             }}
                         />
                         <span className="dim-value">{Math.round(bgDim * 100)}%</span>
                     </div>
-                    <p className="field-desc">Darken the background image so text is easier to read.</p>
+                    <p className="field-desc">Darken a static color or background image so content is easier to read.</p>
                 </div>
                 <div className="field">
                     <label>Glass Blur Intensity</label>
