@@ -10,6 +10,6 @@
     "dev": "npx concurrently --names \"client,server\" --prefix-colors \"cyan,green\" \"npm run dev --prefix client\" \"NODE_ENV=development npm run start --prefix server\""
   },
   "devDependencies": {
-    "concurrently": "^10.0.1"
+    "concurrently": "^10.0.3"
   }
 }
